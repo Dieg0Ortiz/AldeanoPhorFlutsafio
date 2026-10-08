@@ -3,19 +3,50 @@ package aldeanoforaflut.aldeanoforaflut;
 import aldeanoforaflut.aldeanoforaflut.entity.ModEntities;
 import aldeanoforaflut.aldeanoforaflut.entity.TransformableMerchantEntity;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.HorizontalDirectionalBlock;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
-public class TransformableMerchantBlock extends Block {
+public class TransformableMerchantBlock extends HorizontalDirectionalBlock {
+
+    public static final DirectionProperty FACING = HorizontalDirectionalBlock.FACING;
 
     public TransformableMerchantBlock(Properties properties) {
         super(properties);
+        this.registerDefaultState(this.stateDefinition.any().setValue(FACING, Direction.NORTH));
+    }
+
+    @Override
+    public BlockState getStateForPlacement(BlockPlaceContext context) {
+        // Orientar el bloque hacia donde mira el jugador (opuesto, como un horno)
+        return this.defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
+    }
+
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        builder.add(FACING);
+    }
+
+    @Override
+    public BlockState rotate(BlockState state, Rotation rotation) {
+        return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
+    }
+
+    @Override
+    public BlockState mirror(BlockState state, Mirror mirror) {
+        return state.rotate(mirror.getRotation(state.getValue(FACING)));
     }
 
     @Override
@@ -24,11 +55,12 @@ public class TransformableMerchantBlock extends Block {
             if (!level.isClientSide) {
                 // Eliminar el bloque
                 level.removeBlock(pos, false);
-                
-                // Generar el aldeano en el centro del bloque
+
+                // Generar el aldeano en el centro del bloque, mirando en la misma dirección
                 TransformableMerchantEntity merchant = ModEntities.TRANSFORMABLE_MERCHANT.get().create(level);
                 if (merchant != null) {
-                    merchant.moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0, 0);
+                    float yRot = state.getValue(FACING).toYRot();
+                    merchant.moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, yRot, 0);
                     level.addFreshEntity(merchant);
                 }
             }

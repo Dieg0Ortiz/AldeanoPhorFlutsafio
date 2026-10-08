@@ -53,7 +53,7 @@ public class Aldeanoforaflut {
     public static final RegistryObject<Item> EXAMPLE_ITEM = ITEMS.register("example_item", () -> new Item(new Item.Properties().food(new FoodProperties.Builder().alwaysEat().nutrition(1).saturationMod(2f).build())));
 
     public static final RegistryObject<Block> MERCHANT_BLOCK = BLOCKS.register("transformable_merchant_block", 
-        () -> new TransformableMerchantBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(5.0F, 6.0F).requiresCorrectToolForDrops()));
+        () -> new TransformableMerchantBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(5.0F, 6.0F).requiresCorrectToolForDrops().noOcclusion()));
     
     public static final RegistryObject<Item> MERCHANT_BLOCK_ITEM = ITEMS.register("transformable_merchant_block", 
         () -> new BlockItem(MERCHANT_BLOCK.get(), new Item.Properties()));
