@@ -15,10 +15,13 @@ public class TransformableMerchantEntity extends Villager {
 
     public TransformableMerchantEntity(EntityType<? extends Villager> entityType, Level level) {
         super(entityType, level);
-        this.setCustomName(net.minecraft.network.chat.Component.literal("Mercader Oculto"));
-        this.setCustomNameVisible(true);
+        // Quitar la etiqueta de nombre a petición del usuario
+        // Asignar una profesión base (FARMER) para que la UI de tradeo se inicie correctamente y no se cierre sola
+        this.setVillagerData(this.getVillagerData().setProfession(net.minecraft.world.entity.npc.VillagerProfession.FARMER).setLevel(1));
         this.initTrades();
     }
+
+
 
     private void initTrades() {
         MerchantOffers offers = new MerchantOffers();
