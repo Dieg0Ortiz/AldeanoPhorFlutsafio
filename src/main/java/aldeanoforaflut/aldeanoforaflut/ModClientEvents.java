@@ -11,6 +11,6 @@ public class ModClientEvents {
 
     @SubscribeEvent
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
-        event.registerEntityRenderer(ModEntities.TRANSFORMABLE_MERCHANT.get(), net.minecraft.client.renderer.entity.VillagerRenderer::new);
+        event.registerEntityRenderer(ModEntities.TRANSFORMABLE_MERCHANT.get(), net.minecraft.client.renderer.entity.WanderingTraderRenderer::new);
     }
 }
