@@ -68,6 +68,9 @@ public class TransformableMerchantBlock extends HorizontalDirectionalBlock {
                     // Setear nombre custom como pidio el usuario
                     merchant.setCustomName(net.minecraft.network.chat.Component.literal("Aldeano Phora de Recursos de " + player.getName().getString()));
                     merchant.setCustomNameVisible(false); // Ocultar flotando, solo visible en la UI
+                    
+                    // Guardar dueño
+                    merchant.setOwnerUUID(player.getUUID());
 
                     level.addFreshEntity(merchant);
                 }

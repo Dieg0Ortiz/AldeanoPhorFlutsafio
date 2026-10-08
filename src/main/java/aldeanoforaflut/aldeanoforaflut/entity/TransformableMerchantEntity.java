@@ -23,6 +23,8 @@ import software.bernie.geckolib.core.animation.RawAnimation;
 import software.bernie.geckolib.core.object.PlayState;
 import software.bernie.geckolib.util.GeckoLibUtil;
 
+import java.util.UUID;
+
 public class TransformableMerchantEntity extends WanderingTrader implements GeoEntity {
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
@@ -35,6 +37,55 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
     // Niveles de XP estilo aldeano vanilla
     private int phoraLevel = 1;
     private int phoraXp = 0;
+
+    // Dueño y acceso
+    private UUID ownerUUID = null;
+    // 0 = Solo yo, 1 = Mi Hermandad, 2 = Todos
+    private int accessMode = 2;
+
+    // Barra pasiva (ticks acumulados para progreso lento)
+    private long passiveTicks = 0;
+
+    // --- NAMETAG: NUNCA mostrar sobre la cabeza ---
+    @Override
+    public boolean shouldShowName() {
+        return false;
+    }
+
+    @Override
+    public boolean isCustomNameVisible() {
+        return false;
+    }
+
+    public UUID getOwnerUUID() { return this.ownerUUID; }
+    public void setOwnerUUID(UUID uuid) { this.ownerUUID = uuid; }
+
+    public int getAccessMode() { return this.accessMode; }
+    public void setAccessMode(int mode) { this.accessMode = mode % 3; }
+    public void cycleAccessMode() { this.accessMode = (this.accessMode + 1) % 3; }
+    public String getAccessModeText() {
+        return switch (this.accessMode) {
+            case 0 -> "Solo yo";
+            case 1 -> "Mi Hermandad";
+            default -> "Todos";
+        };
+    }
+
+    public boolean canPlayerAccess(Player player) {
+        if (this.ownerUUID == null) return true;
+        if (this.accessMode == 2) return true; // Todos
+        if (this.accessMode == 0) return player.getUUID().equals(this.ownerUUID); // Solo yo
+        // accessMode == 1: Mi Hermandad - por ahora dejar pasar a todos (integrar mod de hermandades despues)
+        return true;
+    }
+
+    public boolean isOwner(Player player) {
+        return this.ownerUUID != null && player.getUUID().equals(this.ownerUUID);
+    }
+
+    public int getPhoraLevel() { return this.phoraLevel; }
+
+    public long getPassiveTicks() { return this.passiveTicks; }
 
     public TransformableMerchantEntity(EntityType<? extends WanderingTrader> entityType, Level level) {
         super(entityType, level);
@@ -70,6 +121,9 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
                     setEntityState(2);
                     this.setNoAi(false);
                 }
+            } else if (getEntityState() == 2) {
+                // Barra pasiva: incrementar cada tick (1% cada ~3 horas = 216000 ticks)
+                this.passiveTicks++;
             }
         }
     }
@@ -99,6 +153,11 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
         if (this.level().isClientSide) return InteractionResult.sidedSuccess(true);
 
         if (getEntityState() == 2) {
+            // Verificar permisos de acceso
+            if (!this.canPlayerAccess(player)) {
+                player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§cNo tienes acceso a este Aldeano Phora."));
+                return InteractionResult.FAIL;
+            }
             if (this.getTradingPlayer() != null) {
                 return InteractionResult.FAIL;
             }
@@ -191,6 +250,11 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
         compound.putInt("PhoraState", getEntityState());
         compound.putInt("PhoraLevel", this.phoraLevel);
         compound.putInt("PhoraXp", this.phoraXp);
+        compound.putInt("PhoraAccessMode", this.accessMode);
+        compound.putLong("PhoraPassiveTicks", this.passiveTicks);
+        if (this.ownerUUID != null) {
+            compound.putUUID("PhoraOwner", this.ownerUUID);
+        }
     }
 
     @Override
@@ -206,6 +270,15 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
         }
         if (compound.contains("PhoraXp")) {
             this.phoraXp = compound.getInt("PhoraXp");
+        }
+        if (compound.contains("PhoraAccessMode")) {
+            this.accessMode = compound.getInt("PhoraAccessMode");
+        }
+        if (compound.contains("PhoraPassiveTicks")) {
+            this.passiveTicks = compound.getLong("PhoraPassiveTicks");
+        }
+        if (compound.hasUUID("PhoraOwner")) {
+            this.ownerUUID = compound.getUUID("PhoraOwner");
         }
     }
 
