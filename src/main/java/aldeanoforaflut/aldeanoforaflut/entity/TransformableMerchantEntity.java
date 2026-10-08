@@ -37,6 +37,8 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
 
     public TransformableMerchantEntity(EntityType<? extends WanderingTrader> entityType, Level level) {
         super(entityType, level);
+        this.setNoAi(true); // Empieza sin IA (Estado 0: Apagado)
+        this.setNoGravity(false);
         this.initCustomTrades();
     }
 
@@ -64,14 +66,11 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
         if (!this.level().isClientSide) {
             if (getEntityState() == 1) {
                 turnOnTicks++;
-                // Supongamos que la animacion turn_on dura 2 segundos (40 ticks)
+                // La animacion turn_on dura 2 segundos (40 ticks)
                 if (turnOnTicks >= 40) {
                     setEntityState(2);
+                    this.setNoAi(false); // Activar IA al encenderse
                 }
-            } else if (getEntityState() == 0) {
-                // Mantenerlo inmovil y sin IA si esta apagado
-                this.setDeltaMovement(0, this.getDeltaMovement().y, 0);
-                this.setYHeadRot(this.getYRot());
             }
         }
     }
@@ -154,7 +153,9 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
     public void readAdditionalSaveData(CompoundTag compound) {
         super.readAdditionalSaveData(compound);
         if (compound.contains("PhoraState")) {
-            setEntityState(compound.getInt("PhoraState"));
+            int savedState = compound.getInt("PhoraState");
+            setEntityState(savedState);
+            this.setNoAi(savedState != 2); // Solo tiene IA si esta activo
         }
     }
 
