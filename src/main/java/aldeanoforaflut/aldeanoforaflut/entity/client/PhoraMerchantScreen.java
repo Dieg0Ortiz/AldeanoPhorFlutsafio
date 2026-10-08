@@ -20,7 +20,7 @@ import net.minecraftforge.api.distmarker.OnlyIn;
 
 @OnlyIn(Dist.CLIENT)
 public class PhoraMerchantScreen extends AbstractContainerScreen<MerchantMenu> {
-   private static final ResourceLocation VILLAGER_LOCATION = new ResourceLocation("textures/gui/container/villager2.png");
+   private static final ResourceLocation VILLAGER_LOCATION = new ResourceLocation("aldeanoforaflut", "textures/gui/phora_gui.png");
    private static final int TEXTURE_WIDTH = 512;
    private static final int TEXTURE_HEIGHT = 256;
    private static final int MERCHANT_MENU_PART_X = 99;
@@ -79,25 +79,41 @@ public class PhoraMerchantScreen extends AbstractContainerScreen<MerchantMenu> {
    }
 
    protected void renderLabels(GuiGraphics p_283337_, int p_282009_, int p_283691_) {
-      Component name = Component.literal("Phora - Recursos");
+      // 1. Title above GUI
+      int titleWidth = this.font.width(this.title);
+      p_283337_.drawString(this.font, this.title, this.imageWidth / 2 - titleWidth / 2, -12, 0xFFFFFF, false);
+
       int i = this.menu.getTraderLevel();
       if (i > 0 && i <= 5 && this.menu.showProgressBar()) {
-         Component component = name.copy().append(" - ").append(Component.translatable("merchant.level." + i));
+         // 2. Nivel text
+         Component component = Component.literal("Nivel " + i);
          int j = this.font.width(component);
-         int k = 49 + this.imageWidth / 2 - j / 2;
-         p_283337_.drawString(this.font, component, k, 6, 0xFFFFFF, false);
-      } else {
-         p_283337_.drawString(this.font, name, 49 + this.imageWidth / 2 - this.font.width(name) / 2, 6, 0xFFFFFF, false);
+         int k = 136 + 51 - j / 2; // centered above progress bar
+         p_283337_.drawString(this.font, component, k, 6, 0xFFDA6A, false); // Light yellow text
+         
+         // 3. Percentage box content
+         int xp = this.menu.getTraderXp();
+         int minXp = VillagerData.getMinXpPerLevel(i);
+         int nextXp = VillagerData.getMinXpPerLevel(i + 1);
+         int pct = 0;
+         if (nextXp > minXp) {
+             pct = (xp - minXp) * 100 / (nextXp - minXp);
+         }
+         if (i >= 5) pct = 100;
+         String pctStr = pct + "%";
+         int pctW = this.font.width(pctStr);
+         p_283337_.drawString(this.font, pctStr, 280 + 15 - pctW / 2, 16, 0xFFDA6A, false);
       }
-      p_283337_.drawString(this.font, this.playerInventoryTitle, this.inventoryLabelX, this.inventoryLabelY, 0xFFFFFF, false);
+      p_283337_.drawString(this.font, this.playerInventoryTitle, this.inventoryLabelX, this.inventoryLabelY, 0xAAAAAA, false);
       int l = this.font.width(TRADES_LABEL);
-      p_283337_.drawString(this.font, TRADES_LABEL, 5 - l / 2 + 48, 6, 0xFFFFFF, false);
    }
 
    protected void renderBg(GuiGraphics p_283072_, float p_281275_, int p_282312_, int p_282984_) {
       int i = (this.width - this.imageWidth) / 2;
       int j = (this.height - this.imageHeight) / 2;
       p_283072_.blit(VILLAGER_LOCATION, i, j, 0, 0.0F, 0.0F, this.imageWidth, this.imageHeight, 512, 256);
+        // Draw the percentage box texture we injected at 280, 10
+        p_283072_.blit(VILLAGER_LOCATION, i + 280, j + 10, 280, 10, 30, 20, 512, 256);
       MerchantOffers merchantoffers = this.menu.getOffers();
       if (!merchantoffers.isEmpty()) {
          int k = this.shopItem;

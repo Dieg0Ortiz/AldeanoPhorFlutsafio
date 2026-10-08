@@ -237,3 +237,5 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
         return this.cache;
     }
 }
+
+
