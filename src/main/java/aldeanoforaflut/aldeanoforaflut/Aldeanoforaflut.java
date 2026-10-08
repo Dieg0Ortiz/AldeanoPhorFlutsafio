@@ -78,6 +78,7 @@ public class Aldeanoforaflut {
         CREATIVE_MODE_TABS.register(modEventBus);
         
         aldeanoforaflut.aldeanoforaflut.entity.ModEntities.register(modEventBus);
+        aldeanoforaflut.aldeanoforaflut.item.ModItems.register(modEventBus);
 
         // Register ourselves for server and other game events we are interested in
         MinecraftForge.EVENT_BUS.register(this);
