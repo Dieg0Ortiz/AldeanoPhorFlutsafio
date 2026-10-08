@@ -116,8 +116,22 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
     protected void updateTrades() {
         if (this.offers == null) {
             this.offers = new MerchantOffers();
+            // Generar todos los trades hasta el nivel 5 desde el inicio
+            for (int lvl = 1; lvl <= 5; lvl++) {
+                DilitioTrades.addTradesForLevel(this.offers, this.random, lvl, this.phoraLevel);
+            }
+        } else {
+            // Desbloquear tradeos del nuevo nivel alcanzado
+            for (MerchantOffer offer : this.offers) {
+                net.minecraft.world.item.ItemStack result = offer.getResult();
+                if (result.hasTag() && result.getTag().contains("RequiredLevel")) {
+                    int reqLvl = result.getTag().getInt("RequiredLevel");
+                    if (reqLvl <= this.phoraLevel) {
+                        offer.resetUses(); // Desbloqueado!
+                    }
+                }
+            }
         }
-        DilitioTrades.addTradesForLevel(this.offers, this.random, this.phoraLevel);
     }
 
     @Override
@@ -147,7 +161,7 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
         
         if (this.canLevelUp()) {
             this.phoraLevel++;
-            this.updateTrades(); // Añadir nuevos tradeos
+            this.updateTrades(); // Desbloquea los tradeos de este nuevo nivel
             i += 5;
         }
 

@@ -28,10 +28,10 @@ public final class DilitioTrades {
         return restocked;
     }
 
-    public static void addTradesForLevel(MerchantOffers offers, RandomSource random, int level) {
+    public static void addTradesForLevel(MerchantOffers offers, RandomSource random, int tradeLevel, int currentVillagerLevel) {
         List<ItemTrade> availableTrades = new ArrayList<>();
 
-        switch (level) {
+        switch (tradeLevel) {
             case 1:
                 availableTrades.add(new ItemTrade(Items.STICK, 32, 64));
                 availableTrades.add(new ItemTrade(Items.DIRT, 64, 64));
@@ -83,14 +83,26 @@ public final class DilitioTrades {
                     count = chosen.min + random.nextInt((chosen.max - chosen.min) + 1);
                 }
                 
-                // Add the offer: Player gives 'count' of 'item', gets 1 Dilitio
-                // The xp reward scales with level to allow leveling up
-                int xpReward = getXpReward(level);
-                offers.add(new MerchantOffer(
+                int xpReward = getXpReward(tradeLevel);
+                
+                ItemStack resultDilitio = new ItemStack(ModItems.DILITIO.get(), 1);
+                resultDilitio.getOrCreateTag().putInt("RequiredLevel", tradeLevel);
+                
+                MerchantOffer newOffer = new MerchantOffer(
                         new ItemStack(chosen.item, count),
-                        new ItemStack(ModItems.DILITIO.get(), 1),
+                        resultDilitio,
                         12, xpReward, 0.05f
-                ));
+                );
+                
+                // Si el nivel requerido es mayor al actual, se marca como "Agotado" para que no se pueda tradear
+                if (tradeLevel > currentVillagerLevel) {
+                    // Forzamos los usos al maximo para bloquearlo
+                    for (int j = 0; j < 12; j++) {
+                        newOffer.increaseUses();
+                    }
+                }
+                
+                offers.add(newOffer);
             }
         }
     }
