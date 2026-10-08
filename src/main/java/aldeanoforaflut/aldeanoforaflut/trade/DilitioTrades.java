@@ -50,6 +50,18 @@ public final class DilitioTrades {
         }
     }
 
+    /** Reinicia los usos de las ofertas agotadas o usadas. Devuelve true si alguna cambió. */
+    public static boolean restock(MerchantOffers offers) {
+        boolean restocked = false;
+        for (MerchantOffer offer : offers) {
+            if (offer.getUses() > 0) {
+                offer.resetUses();
+                restocked = true;
+            }
+        }
+        return restocked;
+    }
+
     /** Entre {@value #STICKS_MIN} y {@value #STICKS_MAX} palos por 1 Dilitio; la cantidad se fija al crear la oferta. */
     public static MerchantOffer sticksForDilitio(RandomSource random) {
         int sticks = random.nextIntBetweenInclusive(STICKS_MIN, STICKS_MAX);
