@@ -2,6 +2,7 @@ package aldeanoforaflut.aldeanoforaflut.trade;
 
 import aldeanoforaflut.aldeanoforaflut.item.ModItems;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.trading.MerchantOffer;

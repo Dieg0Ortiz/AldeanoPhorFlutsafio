@@ -72,6 +72,11 @@ public class TradeConfigData extends SavedData {
 
     private TradeConfigData(CompoundTag tag) {
         super();
+        load(tag);
+    }
+    
+    public void load(CompoundTag tag) {
+        entries.clear();
         ListTag list = tag.getList("Trades", Tag.TAG_COMPOUND);
         for (int i = 0; i < list.size(); i++) {
             entries.add(TradeEntry.load(list.getCompound(i)));
