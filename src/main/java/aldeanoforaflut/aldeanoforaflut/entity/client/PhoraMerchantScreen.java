@@ -25,14 +25,22 @@ public class PhoraMerchantScreen extends AbstractContainerScreen<MerchantMenu> {
     private static final Component TRADES_LABEL = Component.translatable("merchant.trades");
     private static final Component DEPRECATED_TOOLTIP = Component.translatable("merchant.deprecated");
 
+    // 1% cada 3 horas in-game = 216000 ticks por 1%. Total 100% = 21600000 ticks
+    private static final long TICKS_PER_PERCENT = 216000L;
+
     private int shopItem;
     private final TradeOfferButton[] tradeOfferButtons = new TradeOfferButton[7];
     int scrollOff;
     private boolean isDragging;
 
-    // Access button state (synced from entity via title parsing or packet)
+    // Access button state
     private String accessModeText = "Todos";
     private boolean isOwner = false;
+
+    // Passive progress bar data
+    private long passiveTicks = 0;
+    private boolean dataRead = false;
+    private int phoraEntityId = -1;
 
     public PhoraMerchantScreen(MerchantMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -44,6 +52,31 @@ public class PhoraMerchantScreen extends AbstractContainerScreen<MerchantMenu> {
     public void setAccessInfo(String modeText, boolean owner) {
         this.accessModeText = modeText;
         this.isOwner = owner;
+    }
+
+    /** Read injected data from first trade's result NBT */
+    private void readPhoraData() {
+        if (dataRead) return;
+        MerchantOffers offers = this.menu.getOffers();
+        if (!offers.isEmpty()) {
+            ItemStack firstResult = offers.get(0).getResult();
+            if (firstResult.hasTag()) {
+                this.passiveTicks = firstResult.getTag().getLong("PhoraPassiveTicks");
+                int accessMode = firstResult.getTag().getInt("PhoraAccessMode");
+                this.isOwner = firstResult.getTag().getBoolean("PhoraIsOwner");
+                this.phoraEntityId = firstResult.getTag().getInt("PhoraEntityId");
+                this.accessModeText = switch (accessMode) {
+                    case 0 -> "Solo yo";
+                    case 1 -> "Mi Hermandad";
+                    default -> "Todos";
+                };
+                this.dataRead = true;
+            }
+        }
+    }
+
+    private int getPassivePercent() {
+        return (int) Math.min(100, this.passiveTicks / TICKS_PER_PERCENT);
     }
 
     private void postButtonClick() {
@@ -120,6 +153,20 @@ public class PhoraMerchantScreen extends AbstractContainerScreen<MerchantMenu> {
         // Redraw trade list panel area (left side background)
         gfx.fill(i + 4, j + 15, i + 99, j + 158, 0xFF0D0D0D);
         drawBorder(gfx, i + 4, j + 15, 95, 143, 0xFFFF8C00);
+
+        // Barra verde pasiva (arriba de la lista de trades)
+        {
+            int barX = i + 5;
+            int barY = j + 12;
+            int barW = 92;
+            int barH = 3;
+            gfx.fill(barX, barY, barX + barW, barY + barH, 0xFF222222);
+            int pct = this.getPassivePercent();
+            if (pct > 0) {
+                int fillW = Math.min(pct * barW / 100, barW);
+                gfx.fill(barX, barY, barX + fillW, barY + barH, 0xFF44AA44);
+            }
+        }
 
         // Redraw right panel (trade + inventory area)
         gfx.fill(i + 100, j + 2, i + 274, j + 164, 0xFF141414);
@@ -214,6 +261,7 @@ public class PhoraMerchantScreen extends AbstractContainerScreen<MerchantMenu> {
 
     @Override
     public void render(GuiGraphics gfx, int mouseX, int mouseY, float partialTick) {
+        this.readPhoraData(); // Read injected data from first trade
         this.renderBackground(gfx);
         super.render(gfx, mouseX, mouseY, partialTick);
         MerchantOffers merchantoffers = this.menu.getOffers();
@@ -370,8 +418,13 @@ public class PhoraMerchantScreen extends AbstractContainerScreen<MerchantMenu> {
             int accessX = i + 136 + 51 - 40;
             int accessY = j + 60;
             if (mouseX >= accessX && mouseX <= accessX + 80 && mouseY >= accessY && mouseY <= accessY + 12) {
-                // TODO: Send packet to server to cycle access mode
-                // For now just cycle locally
+                if (this.phoraEntityId != -1) {
+                    aldeanoforaflut.aldeanoforaflut.network.ModMessages.sendToServer(
+                        new aldeanoforaflut.aldeanoforaflut.network.PhoraCycleAccessPacket(this.phoraEntityId)
+                    );
+                }
+                
+                // Cycle locally immediately for responsiveness
                 if (this.accessModeText.equals("Todos")) {
                     this.accessModeText = "Solo yo";
                 } else if (this.accessModeText.equals("Solo yo")) {

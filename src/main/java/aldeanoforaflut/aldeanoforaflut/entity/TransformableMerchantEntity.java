@@ -162,8 +162,14 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
                 return InteractionResult.FAIL;
             }
             if (this.offers != null && !this.offers.isEmpty()) {
+                // Inyectar datos extra en el primer trade para que el cliente pueda leerlos
+                net.minecraft.world.item.ItemStack firstResult = this.offers.get(0).getResult();
+                firstResult.getOrCreateTag().putLong("PhoraPassiveTicks", this.passiveTicks);
+                firstResult.getOrCreateTag().putInt("PhoraAccessMode", this.accessMode);
+                firstResult.getOrCreateTag().putBoolean("PhoraIsOwner", this.isOwner(player));
+                firstResult.getOrCreateTag().putInt("PhoraEntityId", this.getId());
+
                 this.setTradingPlayer(player);
-                // Pasar phoraLevel para que la UI muestre el nivel y progreso correctamente
                 this.openTradingScreen(player, this.getDisplayName(), this.phoraLevel);
                 return InteractionResult.SUCCESS;
             }
@@ -176,8 +182,10 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
         if (this.offers == null) {
             this.offers = new MerchantOffers();
             // Generar todos los trades hasta el nivel 5 desde el inicio
-            for (int lvl = 1; lvl <= 5; lvl++) {
-                DilitioTrades.addTradesForLevel(this.offers, this.random, lvl, this.phoraLevel);
+            if (!this.level().isClientSide) {
+                for (int lvl = 1; lvl <= 5; lvl++) {
+                    DilitioTrades.addTradesForLevel(this.offers, this.random, lvl, this.phoraLevel, (net.minecraft.server.level.ServerLevel) this.level());
+                }
             }
         } else {
             // Desbloquear tradeos del nuevo nivel alcanzado

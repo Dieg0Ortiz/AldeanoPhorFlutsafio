@@ -19,6 +19,10 @@ public class ModItems {
     public static final RegistryObject<Item> DILITIO =
             ITEMS.register("dilitio", () -> new Item(new Item.Properties().stacksTo(64)));
 
+    // Tablet de Admin
+    public static final RegistryObject<Item> PHORA_TABLET =
+            ITEMS.register("phora_tablet", () -> new PhoraTabletItem(new Item.Properties().stacksTo(1)));
+
     public static void register(IEventBus eventBus) {
         ITEMS.register(eventBus);
     }
@@ -27,6 +31,7 @@ public class ModItems {
     public static void addCreative(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == Aldeanoforaflut.EXAMPLE_TAB.getKey()) {
             event.accept(DILITIO);
+            event.accept(PHORA_TABLET);
         }
     }
 }
