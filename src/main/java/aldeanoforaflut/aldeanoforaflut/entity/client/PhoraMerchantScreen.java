@@ -92,13 +92,6 @@ public class PhoraMerchantScreen extends AbstractContainerScreen<MerchantMenu> {
       p_283337_.drawString(this.font, this.playerInventoryTitle, this.inventoryLabelX, this.inventoryLabelY, 0xFFFFFF, false);
       int l = this.font.width(TRADES_LABEL);
       p_283337_.drawString(this.font, TRADES_LABEL, 5 - l / 2 + 48, 6, 0xFFFFFF, false);
-   } else {`n         p_283337_.drawString(this.font, name, 49 + this.imageWidth / 2 - this.font.width(name) / 2, 6, 0xFFFFFF, false);`n      }`n      p_283337_.drawString(this.font, this.playerInventoryTitle, this.inventoryLabelX, this.inventoryLabelY, 0xFFFFFF, false);`n      int l = this.font.width(TRADES_LABEL);`n      p_283337_.drawString(this.font, TRADES_LABEL, 5 - l / 2 + 48, 6, 0xFFFFFF, false);`n   } else {
-         p_283337_.drawString(this.font, this.title, 49 + this.imageWidth / 2 - this.font.width(this.title) / 2, 6, 4210752, false);
-      }
-
-      p_283337_.drawString(this.font, this.playerInventoryTitle, this.inventoryLabelX, this.inventoryLabelY, 4210752, false);
-      int l = this.font.width(TRADES_LABEL);
-      p_283337_.drawString(this.font, TRADES_LABEL, 5 - l / 2 + 48, 6, 4210752, false);
    }
 
    protected void renderBg(GuiGraphics p_283072_, float p_281275_, int p_282312_, int p_282984_) {
