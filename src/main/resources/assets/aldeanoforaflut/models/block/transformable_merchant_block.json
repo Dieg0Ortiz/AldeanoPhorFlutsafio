@@ -3,7 +3,8 @@
 	"credit": "Made with Blockbench",
 	"texture_size": [128, 128],
 	"textures": {
-		"0": "aldeanoforaflut:block/phora_texture"
+		"0": "aldeanoforaflut:block/phora_texture",
+		"particle": "aldeanoforaflut:block/phora_texture"
 	},
 	"elements": [
 		{
