@@ -15,6 +15,19 @@ public final class DilitioTrades {
 
     private DilitioTrades() {}
 
+    /** Reinicia los usos de las ofertas agotadas o usadas. Devuelve true si alguna cambió. */
+    public static boolean restock(MerchantOffers offers) {
+        boolean restocked = false;
+        if (offers == null) return false;
+        for (MerchantOffer offer : offers) {
+            if (offer.getUses() > 0) {
+                offer.resetUses();
+                restocked = true;
+            }
+        }
+        return restocked;
+    }
+
     public static void addTradesForLevel(MerchantOffers offers, RandomSource random, int level) {
         List<ItemTrade> availableTrades = new ArrayList<>();
 
