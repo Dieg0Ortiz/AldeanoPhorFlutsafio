@@ -64,6 +64,11 @@ public class TransformableMerchantBlock extends HorizontalDirectionalBlock {
                     merchant.setYHeadRot(yRot);
                     merchant.setYBodyRot(yRot);
                     merchant.setEntityState(1); // Empieza en Estado 1: Encendiendose
+                    
+                    // Setear nombre custom como pidio el usuario
+                    merchant.setCustomName(net.minecraft.network.chat.Component.literal("Aldeano Phora de Recursos de " + player.getName().getString()));
+                    merchant.setCustomNameVisible(true);
+
                     level.addFreshEntity(merchant);
                 }
             }

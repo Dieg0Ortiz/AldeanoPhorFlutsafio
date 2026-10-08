@@ -8,80 +8,100 @@ import net.minecraft.world.item.trading.MerchantOffer;
 import net.minecraft.world.item.trading.MerchantOffers;
 import net.minecraft.world.level.ItemLike;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Function;
 
-/**
- * Ofertas de los aldeanos transformables que usan Dilitio como moneda.
- * Para agregar un trade nuevo, añade una línea a {@link #TRADES}.
- */
 public final class DilitioTrades {
 
-    // Palos -> Dilitio (el rango debe caber en un solo stack de 64)
-    public static final int STICKS_MIN = 55;
-    public static final int STICKS_MAX = 62;
-    public static final int STICKS_MAX_USES = 12;
+    private DilitioTrades() {}
 
-    // Precios en Dilitio
-    public static final int DIAMOND_PRICE = 2;
-    public static final int NETHERITE_PRICE = 8;
-    public static final int BREAD_PRICE = 1;
-    public static final int BREAD_AMOUNT = 16;
+    public static void addTradesForLevel(MerchantOffers offers, RandomSource random, int level) {
+        List<ItemTrade> availableTrades = new ArrayList<>();
 
-    // Valores por defecto de las compras con Dilitio
-    public static final int DEFAULT_MAX_USES = 10;
-    public static final int DEFAULT_XP = 5;
-    public static final float DEFAULT_PRICE_MULTIPLIER = 0.05f;
-
-    private static final List<Function<RandomSource, MerchantOffer>> TRADES = List.of(
-            DilitioTrades::sticksForDilitio,
-            random -> buy(Items.DIAMOND, 1, DIAMOND_PRICE),
-            random -> buy(Items.NETHERITE_INGOT, 1, NETHERITE_PRICE),
-            random -> buy(Items.BREAD, BREAD_AMOUNT, BREAD_PRICE)
-    );
-
-    private DilitioTrades() {
-    }
-
-    /** Agrega todas las ofertas de Dilitio a la lista del comerciante. */
-    public static void addAll(MerchantOffers offers, RandomSource random) {
-        for (Function<RandomSource, MerchantOffer> trade : TRADES) {
-            offers.add(trade.apply(random));
+        switch (level) {
+            case 1:
+                availableTrades.add(new ItemTrade(Items.STICK, 32, 64));
+                availableTrades.add(new ItemTrade(Items.DIRT, 64, 64));
+                availableTrades.add(new ItemTrade(Items.COBBLESTONE, 64, 64));
+                availableTrades.add(new ItemTrade(Items.WHEAT, 20, 30));
+                availableTrades.add(new ItemTrade(Items.SAND, 64, 64));
+                break;
+            case 2:
+                availableTrades.add(new ItemTrade(Items.COAL, 10, 20));
+                availableTrades.add(new ItemTrade(Items.BAKED_POTATO, 10, 20));
+                availableTrades.add(new ItemTrade(Items.APPLE, 5, 10));
+                availableTrades.add(new ItemTrade(Items.STRING, 15, 30));
+                availableTrades.add(new ItemTrade(Items.ROTTEN_FLESH, 30, 40));
+                availableTrades.add(new ItemTrade(Items.BEETROOT, 10, 20));
+                break;
+            case 3:
+                availableTrades.add(new ItemTrade(Items.IRON_INGOT, 5, 10));
+                availableTrades.add(new ItemTrade(Items.GOLD_INGOT, 5, 10));
+                availableTrades.add(new ItemTrade(Items.BAMBOO, 30, 64));
+                availableTrades.add(new ItemTrade(Items.HONEYCOMB, 5, 10));
+                availableTrades.add(new ItemTrade(Items.LAPIS_LAZULI, 10, 20));
+                break;
+            case 4:
+                availableTrades.add(new ItemTrade(Items.DIAMOND, 1, 3));
+                availableTrades.add(new ItemTrade(Items.OBSIDIAN, 3, 10));
+                availableTrades.add(new ItemTrade(Items.ENDER_PEARL, 2, 5));
+                availableTrades.add(new ItemTrade(Items.SLIME_BALL, 5, 10));
+                availableTrades.add(new ItemTrade(Items.EMERALD, 3, 6));
+                break;
+            case 5:
+                availableTrades.add(new ItemTrade(Items.NETHERITE_INGOT, 1, 1));
+                availableTrades.add(new ItemTrade(Items.GHAST_TEAR, 1, 2));
+                availableTrades.add(new ItemTrade(Items.BLAZE_ROD, 5, 10));
+                availableTrades.add(new ItemTrade(Items.PHANTOM_MEMBRANE, 5, 10));
+                availableTrades.add(new ItemTrade(Items.GOLDEN_APPLE, 1, 2));
+                break;
         }
-    }
 
-    /** Reinicia los usos de las ofertas agotadas o usadas. Devuelve true si alguna cambió. */
-    public static boolean restock(MerchantOffers offers) {
-        boolean restocked = false;
-        for (MerchantOffer offer : offers) {
-            if (offer.getUses() > 0) {
-                offer.resetUses();
-                restocked = true;
+        // Pick 2 random unique trades from the available pool for this level
+        if (!availableTrades.isEmpty()) {
+            int tradesToAdd = Math.min(2, availableTrades.size());
+            for (int i = 0; i < tradesToAdd; i++) {
+                int randomIndex = random.nextInt(availableTrades.size());
+                ItemTrade chosen = availableTrades.remove(randomIndex);
+                
+                // Determine random count
+                int count = chosen.min;
+                if (chosen.max > chosen.min) {
+                    count = chosen.min + random.nextInt((chosen.max - chosen.min) + 1);
+                }
+                
+                // Add the offer: Player gives 'count' of 'item', gets 1 Dilitio
+                // The xp reward scales with level to allow leveling up
+                int xpReward = getXpReward(level);
+                offers.add(new MerchantOffer(
+                        new ItemStack(chosen.item, count),
+                        new ItemStack(ModItems.DILITIO.get(), 1),
+                        12, xpReward, 0.05f
+                ));
             }
         }
-        return restocked;
     }
 
-    /** Entre {@value #STICKS_MIN} y {@value #STICKS_MAX} palos por 1 Dilitio; la cantidad se fija al crear la oferta. */
-    public static MerchantOffer sticksForDilitio(RandomSource random) {
-        int sticks = random.nextIntBetweenInclusive(STICKS_MIN, STICKS_MAX);
-        return new MerchantOffer(
-                new ItemStack(Items.STICK, sticks),
-                new ItemStack(ModItems.DILITIO.get(), 1),
-                STICKS_MAX_USES, 2, 0.0f
-        );
+    private static int getXpReward(int level) {
+        return switch (level) {
+            case 1 -> 2;
+            case 2 -> 10;
+            case 3 -> 20;
+            case 4 -> 30;
+            case 5 -> 0; // Max level
+            default -> 2;
+        };
     }
 
-    /** Oferta para comprar {@code count} de {@code item} pagando {@code price} Dilitio. */
-    public static MerchantOffer buy(ItemLike item, int count, int price) {
-        return buy(item, count, price, DEFAULT_MAX_USES);
-    }
+    private static class ItemTrade {
+        public final ItemLike item;
+        public final int min;
+        public final int max;
 
-    public static MerchantOffer buy(ItemLike item, int count, int price, int maxUses) {
-        return new MerchantOffer(
-                new ItemStack(ModItems.DILITIO.get(), price),
-                new ItemStack(item, count),
-                maxUses, DEFAULT_XP, DEFAULT_PRICE_MULTIPLIER
-        );
+        public ItemTrade(ItemLike item, int min, int max) {
+            this.item = item;
+            this.min = min;
+            this.max = max;
+        }
     }
 }

@@ -31,10 +31,14 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
 
     private int turnOnTicks = 0;
 
+    // Niveles de XP estilo aldeano vanilla
+    private int phoraLevel = 1;
+    private int phoraXp = 0;
+
     public TransformableMerchantEntity(EntityType<? extends WanderingTrader> entityType, Level level) {
         super(entityType, level);
         this.setNoAi(true); // Empieza sin IA (encendiendose)
-        this.initCustomTrades();
+        this.updateTrades(); // Inicializar tradeos de Nivel 1
     }
 
     @Override
@@ -61,10 +65,9 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
         if (!this.level().isClientSide) {
             if (getEntityState() == 1) {
                 turnOnTicks++;
-                // La animacion turn_on dura 2 segundos (40 ticks)
                 if (turnOnTicks >= 40) {
                     setEntityState(2);
-                    this.setNoAi(false); // Activar IA al terminar de encenderse
+                    this.setNoAi(false);
                 }
             }
         }
@@ -89,37 +92,90 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
         }
     }
 
+    // --- LOGICA DE TRADEO Y NIVELES ---
     @Override
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
         if (this.level().isClientSide) return InteractionResult.sidedSuccess(true);
 
         if (getEntityState() == 2) {
-            // Trading normal
             if (this.getTradingPlayer() != null) {
                 return InteractionResult.FAIL;
             }
             if (this.offers != null && !this.offers.isEmpty()) {
                 this.setTradingPlayer(player);
-                this.openTradingScreen(player, this.getDisplayName(), 1);
+                // Pasar phoraLevel para que la UI muestre el nivel y progreso correctamente
+                this.openTradingScreen(player, this.getDisplayName(), this.phoraLevel);
                 return InteractionResult.SUCCESS;
             }
         }
         return InteractionResult.PASS;
     }
 
-    private void initCustomTrades() {
-        MerchantOffers customOffers = new MerchantOffers();
-        DilitioTrades.addAll(customOffers, this.random);
-        this.offers = customOffers;
+    @Override
+    protected void updateTrades() {
+        if (this.offers == null) {
+            this.offers = new MerchantOffers();
+        }
+        DilitioTrades.addTradesForLevel(this.offers, this.random, this.phoraLevel);
     }
 
     @Override
-    protected void updateTrades() {} // Evitar que WanderingTrader borre los tradeos
+    public int getVillagerXp() {
+        return this.phoraXp;
+    }
+
+    @Override
+    public void overrideXp(int xp) {
+        this.phoraXp = xp;
+    }
+
+    @Override
+    public boolean showProgressBar() {
+        return true; // Mostrar barra de XP en la UI
+    }
+
+    @Override
+    public void notifyTrade(MerchantOffer offer) {
+        super.notifyTrade(offer); // Esto internamente llama a rewardTradeXp
+    }
+
+    @Override
+    protected void rewardTradeXp(MerchantOffer offer) {
+        int i = 3 + this.random.nextInt(4);
+        this.phoraXp += offer.getXp();
+        
+        if (this.canLevelUp()) {
+            this.phoraLevel++;
+            this.updateTrades(); // Añadir nuevos tradeos
+            i += 5;
+        }
+
+        if (offer.shouldRewardExp()) {
+            this.level().addFreshEntity(new net.minecraft.world.entity.ExperienceOrb(this.level(), this.getX(), this.getY() + 0.5D, this.getZ(), i));
+        }
+    }
+
+    private boolean canLevelUp() {
+        int targetXp = getXpForLevel(this.phoraLevel + 1);
+        return this.phoraLevel < 5 && this.phoraXp >= targetXp;
+    }
+
+    private int getXpForLevel(int lvl) {
+        return switch (lvl) {
+            case 2 -> 10;
+            case 3 -> 70;
+            case 4 -> 150;
+            case 5 -> 250;
+            default -> 0;
+        };
+    }
 
     @Override
     public void addAdditionalSaveData(CompoundTag compound) {
         super.addAdditionalSaveData(compound);
         compound.putInt("PhoraState", getEntityState());
+        compound.putInt("PhoraLevel", this.phoraLevel);
+        compound.putInt("PhoraXp", this.phoraXp);
     }
 
     @Override
@@ -129,6 +185,12 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
             int savedState = compound.getInt("PhoraState");
             setEntityState(savedState);
             this.setNoAi(savedState != 2);
+        }
+        if (compound.contains("PhoraLevel")) {
+            this.phoraLevel = compound.getInt("PhoraLevel");
+        }
+        if (compound.contains("PhoraXp")) {
+            this.phoraXp = compound.getInt("PhoraXp");
         }
     }
 
