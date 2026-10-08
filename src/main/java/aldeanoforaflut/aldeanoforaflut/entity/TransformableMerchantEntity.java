@@ -8,12 +8,9 @@ import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.npc.WanderingTrader;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.item.trading.MerchantOffers;
 import net.minecraft.world.level.Level;
 import software.bernie.geckolib.animatable.GeoEntity;
@@ -28,24 +25,22 @@ import software.bernie.geckolib.util.GeckoLibUtil;
 public class TransformableMerchantEntity extends WanderingTrader implements GeoEntity {
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
+    // 1 = Turning On (animacion de encendido)
+    // 2 = Active Villager (camina y tradea)
     private static final EntityDataAccessor<Integer> STATE = SynchedEntityData.defineId(TransformableMerchantEntity.class, EntityDataSerializers.INT);
-    // 0 = Block Mode (Inactive)
-    // 1 = Turning On Transition
-    // 2 = Active Villager
 
     private int turnOnTicks = 0;
 
     public TransformableMerchantEntity(EntityType<? extends WanderingTrader> entityType, Level level) {
         super(entityType, level);
-        this.setNoAi(true); // Empieza sin IA (Estado 0: Apagado)
-        this.setNoGravity(false);
+        this.setNoAi(true); // Empieza sin IA (encendiendose)
         this.initCustomTrades();
     }
 
     @Override
     protected void defineSynchedData() {
         super.defineSynchedData();
-        this.entityData.define(STATE, 0);
+        this.entityData.define(STATE, 1); // Empieza en Estado 1 (Encendiendose)
     }
 
     public int getEntityState() {
@@ -69,29 +64,15 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
                 // La animacion turn_on dura 2 segundos (40 ticks)
                 if (turnOnTicks >= 40) {
                     setEntityState(2);
-                    this.setNoAi(false); // Activar IA al encenderse
+                    this.setNoAi(false); // Activar IA al terminar de encenderse
                 }
             }
         }
     }
 
     @Override
-    public boolean hurt(DamageSource source, float amount) {
-        // Si esta en Estado 0 y lo golpean (ej: con click izquierdo), se "rompe" como un bloque
-        if (getEntityState() == 0 && !this.level().isClientSide) {
-            this.spawnAtLocation(new ItemStack(Aldeanoforaflut.MERCHANT_BLOCK_ITEM.get()));
-            this.discard();
-            return false;
-        }
-        if (getEntityState() == 0 || getEntityState() == 1) {
-            return false; // Inmune al dano mientras es bloque o se enciende
-        }
-        return super.hurt(source, amount);
-    }
-
-    @Override
     public boolean isPushable() {
-        return getEntityState() == 2; // Solo se puede empujar si esta activo
+        return getEntityState() == 2;
     }
 
     @Override
@@ -110,17 +91,9 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
 
     @Override
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
-        if (this.level().isClientSide) return InteractionResult.sidedSuccess(this.level().isClientSide);
+        if (this.level().isClientSide) return InteractionResult.sidedSuccess(true);
 
-        int state = getEntityState();
-        if (state == 0) {
-            // Evento de activacion: Click derecho con un Palo
-            if (player.getItemInHand(hand).is(Items.STICK)) {
-                setEntityState(1); // Empieza a encenderse
-                turnOnTicks = 0;
-                return InteractionResult.SUCCESS;
-            }
-        } else if (state == 2) {
+        if (getEntityState() == 2) {
             // Trading normal
             if (this.getTradingPlayer() != null) {
                 return InteractionResult.FAIL;
@@ -155,7 +128,7 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
         if (compound.contains("PhoraState")) {
             int savedState = compound.getInt("PhoraState");
             setEntityState(savedState);
-            this.setNoAi(savedState != 2); // Solo tiene IA si esta activo
+            this.setNoAi(savedState != 2);
         }
     }
 
@@ -168,10 +141,7 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
     private PlayState predicate(AnimationState<TransformableMerchantEntity> state) {
         int entityState = getEntityState();
 
-        if (entityState == 0) {
-            state.getController().setAnimation(RawAnimation.begin().thenLoop("animation.phora.inactive"));
-            return PlayState.CONTINUE;
-        } else if (entityState == 1) {
+        if (entityState == 1) {
             state.getController().setAnimation(RawAnimation.begin().thenPlay("animation.phora.turn_on"));
             return PlayState.CONTINUE;
         } else {
