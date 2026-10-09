@@ -173,12 +173,12 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
             if (getEntityState() == 1) {
                 turnOnTicks++;
                 if (turnOnTicks == 1) {
-                    this.playSound(ModSounds.PHORA_POWER_ON.get(), 1.0f, 1.0f);
+                    this.playSound(ModSounds.PHORA_POWER_ON.get(), ModSounds.PHORA_VOLUME, 1.0f);
                 }
                 if (turnOnTicks >= 40) {
                     setEntityState(2);
                     this.setNoAi(false);
-                    this.playSound(ModSounds.PHORA_BOOT_READY.get(), 1.0f, 1.0f);
+                    this.playSound(ModSounds.PHORA_BOOT_READY.get(), ModSounds.PHORA_VOLUME, 1.0f);
                 }
             } else if (getEntityState() == 2) {
                 // Barra pasiva: incrementar cada tick (1% cada ~3 horas = 216000 ticks)
@@ -223,7 +223,7 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
         this.setNoAi(true);
         this.turnOffTicks = 0;
         setEntityState(3);
-        this.playSound(ModSounds.PHORA_POWER_OFF.get(), 1.0f, 1.0f);
+        this.playSound(ModSounds.PHORA_POWER_OFF.get(), ModSounds.PHORA_VOLUME, 1.0f);
     }
 
     private void finishTurnOff() {
@@ -274,6 +274,11 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
     @Override
     public float getVoicePitch() {
         return 1.0f; // Sin la variación aleatoria de la voz de aldeano
+    }
+
+    @Override
+    protected float getSoundVolume() {
+        return ModSounds.PHORA_VOLUME;
     }
 
     @Override
@@ -375,7 +380,7 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
         // Shift-click hace varios tradeos en el mismo tick: un solo sonido para no saturar
         if (this.tickCount - this.lastTradeSoundTick >= TRADE_SOUND_COOLDOWN) {
             this.lastTradeSoundTick = this.tickCount;
-            this.playSound(ModSounds.PHORA_TRADE.get(), 0.9f, 0.95f + this.random.nextFloat() * 0.1f);
+            this.playSound(ModSounds.PHORA_TRADE.get(), ModSounds.PHORA_VOLUME, 0.95f + this.random.nextFloat() * 0.1f);
         }
     }
 
