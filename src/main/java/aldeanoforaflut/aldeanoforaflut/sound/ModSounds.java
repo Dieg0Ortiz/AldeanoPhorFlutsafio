@@ -14,6 +14,9 @@ import net.minecraftforge.registries.RegistryObject;
  * basta con cambiar ese JSON, sin tocar el código.
  */
 public class ModSounds {
+    /** Volumen global de todos los sonidos del Phora (1.0 = volumen original del audio). */
+    public static final float PHORA_VOLUME = 0.35f;
+
     public static final DeferredRegister<SoundEvent> SOUND_EVENTS =
             DeferredRegister.create(ForgeRegistries.SOUND_EVENTS, Aldeanoforaflut.MODID);
 

@@ -43,7 +43,7 @@ public class DilitioRestockHandler {
 
         data.putLong(LAST_RESTOCK_DAY_KEY, currentDay);
         if (DilitioTrades.restock(merchant.getOffers(), merchant::isOfferUnlocked)) {
-            merchant.playSound(ModSounds.PHORA_RESTOCK.get(), 1.0f, 1.0f);
+            merchant.playSound(ModSounds.PHORA_RESTOCK.get(), ModSounds.PHORA_VOLUME, 1.0f);
         }
     }
 }
