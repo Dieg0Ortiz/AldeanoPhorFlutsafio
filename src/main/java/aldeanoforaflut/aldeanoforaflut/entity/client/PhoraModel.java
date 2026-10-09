@@ -13,7 +13,7 @@ public class PhoraModel extends GeoModel<TransformableMerchantEntity> {
 
     @Override
     public ResourceLocation getTextureResource(TransformableMerchantEntity object) {
-        if (object.isActive()) {
+        if (object.isActive() || object.isTurningOff()) {
             return new ResourceLocation(Aldeanoforaflut.MODID, "textures/entity/phora_on.png");
         }
         return new ResourceLocation(Aldeanoforaflut.MODID, "textures/entity/phora_off.png");

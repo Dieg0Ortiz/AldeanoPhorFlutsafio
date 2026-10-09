@@ -1,65 +1,51 @@
 {
   "phora.power_on": {
     "subtitle": "subtitles.aldeanoforaflut.phora.power_on",
-    "sounds": [
-      { "name": "minecraft:block/beacon/activate", "pitch": 1.3 }
-    ]
+    "sounds": [ { "name": "aldeanoforaflut:phora/power_on", "pitch": 0.75 } ]
   },
   "phora.boot_ready": {
     "subtitle": "subtitles.aldeanoforaflut.phora.boot_ready",
-    "sounds": [
-      { "name": "minecraft:note/bit", "pitch": 2.0, "volume": 0.6 }
-    ]
+    "sounds": [ { "name": "aldeanoforaflut:phora/boot_ready", "pitch": 0.75 } ]
   },
   "phora.power_off": {
     "subtitle": "subtitles.aldeanoforaflut.phora.power_off",
-    "sounds": [
-      { "name": "minecraft:block/beacon/deactivate", "pitch": 1.3 }
-    ]
+    "sounds": [ { "name": "aldeanoforaflut:phora/power_off", "pitch": 0.75 } ]
   },
   "phora.ambient": {
     "subtitle": "subtitles.aldeanoforaflut.phora.ambient",
     "sounds": [
-      { "name": "minecraft:block/conduit/short1", "pitch": 1.6, "volume": 0.4 },
-      { "name": "minecraft:block/conduit/short3", "pitch": 1.8, "volume": 0.4 },
-      { "name": "minecraft:block/conduit/short5", "pitch": 1.5, "volume": 0.4 },
-      { "name": "minecraft:block/conduit/short7", "pitch": 1.7, "volume": 0.4 },
-      { "name": "minecraft:note/bit", "pitch": 1.6, "volume": 0.25 },
-      { "name": "minecraft:note/bit", "pitch": 1.2, "volume": 0.25 }
+      { "name": "aldeanoforaflut:phora/ambient1", "pitch": 0.75 },
+      { "name": "aldeanoforaflut:phora/ambient2", "pitch": 0.75 },
+      { "name": "aldeanoforaflut:phora/ambient3", "pitch": 0.75 },
+      { "name": "aldeanoforaflut:phora/ambient4", "pitch": 0.75 }
     ]
   },
   "phora.processing": {
     "subtitle": "subtitles.aldeanoforaflut.phora.processing",
     "sounds": [
-      { "name": "minecraft:block/conduit/short2", "pitch": 2.0, "volume": 0.35 },
-      { "name": "minecraft:block/conduit/short4", "pitch": 2.0, "volume": 0.35 },
-      { "name": "minecraft:block/conduit/short6", "pitch": 1.9, "volume": 0.35 }
+      { "name": "aldeanoforaflut:phora/processing1", "pitch": 0.75 },
+      { "name": "aldeanoforaflut:phora/processing2", "pitch": 0.75 }
     ]
   },
   "phora.accept": {
     "subtitle": "subtitles.aldeanoforaflut.phora.accept",
-    "sounds": [
-      { "name": "minecraft:note/bit", "pitch": 1.8, "volume": 0.5 }
-    ]
+    "sounds": [ { "name": "aldeanoforaflut:phora/accept", "pitch": 0.75 } ]
   },
   "phora.deny": {
     "subtitle": "subtitles.aldeanoforaflut.phora.deny",
-    "sounds": [
-      { "name": "minecraft:note/bit", "pitch": 0.6, "volume": 0.5 }
-    ]
+    "sounds": [ { "name": "aldeanoforaflut:phora/deny", "pitch": 0.9 } ]
   },
   "phora.trade": {
     "subtitle": "subtitles.aldeanoforaflut.phora.trade",
     "sounds": [
-      { "name": "minecraft:note/pling", "pitch": 1.8, "volume": 0.5 }
+      { "name": "aldeanoforaflut:phora/trade1", "pitch": 0.75 },
+      { "name": "aldeanoforaflut:phora/trade2", "pitch": 0.75 },
+      { "name": "aldeanoforaflut:phora/trade3", "pitch": 0.75 },
+      { "name": "aldeanoforaflut:phora/trade4", "pitch": 0.75 }
     ]
   },
   "phora.restock": {
     "subtitle": "subtitles.aldeanoforaflut.phora.restock",
-    "sounds": [
-      { "name": "minecraft:block/beacon/power1", "pitch": 1.5, "volume": 0.6 },
-      { "name": "minecraft:block/beacon/power2", "pitch": 1.5, "volume": 0.6 },
-      { "name": "minecraft:block/beacon/power3", "pitch": 1.5, "volume": 0.6 }
-    ]
+    "sounds": [ { "name": "aldeanoforaflut:phora/restock", "pitch": 0.75 } ]
   }
 }
