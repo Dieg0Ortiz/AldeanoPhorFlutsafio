@@ -17,7 +17,9 @@ public class SaveTradeConfigPacket {
     }
 
     public SaveTradeConfigPacket(FriendlyByteBuf buf) {
-        this.configData = buf.readAnySizeNbt();
+        // readNbt limita el tamaño (2 MB): el paquete llega de un cliente y se decodifica antes de validar permisos
+        CompoundTag tag = buf.readNbt();
+        this.configData = tag != null ? tag : new CompoundTag();
     }
 
     public void toBytes(FriendlyByteBuf buf) {
@@ -29,11 +31,8 @@ public class SaveTradeConfigPacket {
         context.enqueueWork(() -> {
             ServerPlayer player = context.getSender();
             if (player != null && player.hasPermissions(2)) {
-                // Guardar la data
                 TradeConfigData data = TradeConfigData.get((ServerLevel) player.level());
-                // Forzar recreación basada en el NBT entrante
-                data.load(configData);
-                data.setDirty();
+                data.loadFromClient(configData);
             }
         });
         return true;

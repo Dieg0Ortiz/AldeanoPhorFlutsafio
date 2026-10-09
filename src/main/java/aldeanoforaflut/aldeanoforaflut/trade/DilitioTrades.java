@@ -1,27 +1,34 @@
 package aldeanoforaflut.aldeanoforaflut.trade;
 
 import aldeanoforaflut.aldeanoforaflut.item.ModItems;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.trading.MerchantOffer;
 import net.minecraft.world.item.trading.MerchantOffers;
-import net.minecraft.world.level.ItemLike;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.function.IntPredicate;
 
 public final class DilitioTrades {
 
+    public static final int TRADES_PER_LEVEL = 2;
+    public static final int MAX_USES = 12;
+
     private DilitioTrades() {}
 
-    /** Reinicia los usos de las ofertas agotadas o usadas. Devuelve true si alguna cambió. */
-    public static boolean restock(MerchantOffers offers) {
+    /**
+     * Reinicia los usos de las ofertas usadas cuyo índice cumpla {@code canRestock}.
+     * Las ofertas bloqueadas por nivel deben quedar fuera para no desbloquearse.
+     */
+    public static boolean restock(MerchantOffers offers, IntPredicate canRestock) {
         boolean restocked = false;
         if (offers == null) return false;
-        for (MerchantOffer offer : offers) {
-            if (offer.getUses() > 0) {
+        for (int i = 0; i < offers.size(); i++) {
+            MerchantOffer offer = offers.get(i);
+            if (offer.getUses() > 0 && canRestock.test(i)) {
                 offer.resetUses();
                 restocked = true;
             }
@@ -29,66 +36,61 @@ public final class DilitioTrades {
         return restocked;
     }
 
-    public static void addTradesForLevel(MerchantOffers offers, RandomSource random, int tradeLevel, int currentVillagerLevel, net.minecraft.server.level.ServerLevel serverLevel) {
+    /**
+     * Agrega hasta {@value #TRADES_PER_LEVEL} ofertas del nivel indicado y devuelve cuántas agregó.
+     * El resultado es siempre Dilitio sin NBT para que se apile sin importar de qué trade viene.
+     */
+    public static int addTradesForLevel(MerchantOffers offers, RandomSource random, int tradeLevel, int currentVillagerLevel, ServerLevel serverLevel) {
         TradeConfigData config = TradeConfigData.get(serverLevel);
         List<TradeConfigData.TradeEntry> availableTrades = config.getEntriesForLevel(tradeLevel);
 
-        // Pick 2 random unique trades based on weights
-        if (!availableTrades.isEmpty()) {
-            int tradesToAdd = Math.min(2, availableTrades.size());
-            for (int i = 0; i < tradesToAdd; i++) {
-                if (availableTrades.isEmpty()) break;
-                
-                // Calculate total weight
-                int totalWeight = availableTrades.stream().mapToInt(e -> e.weight).sum();
-                if (totalWeight <= 0) break;
+        int added = 0;
+        int tradesToAdd = Math.min(TRADES_PER_LEVEL, availableTrades.size());
+        for (int i = 0; i < tradesToAdd; i++) {
+            TradeConfigData.TradeEntry chosen = pickWeighted(availableTrades, random);
+            if (chosen == null) break;
+            availableTrades.remove(chosen); // Evita trades repetidos en el mismo nivel
 
-                int randomWeight = random.nextInt(totalWeight);
-                int currentWeight = 0;
-                TradeConfigData.TradeEntry chosen = null;
-                for (TradeConfigData.TradeEntry entry : availableTrades) {
-                    currentWeight += entry.weight;
-                    if (randomWeight < currentWeight) {
-                        chosen = entry;
-                        break;
-                    }
-                }
-                
-                if (chosen != null) {
-                    availableTrades.remove(chosen); // Prevent duplicate trade in the same refresh
+            int count = chosen.minCount;
+            if (chosen.maxCount > chosen.minCount) {
+                count = chosen.minCount + random.nextInt((chosen.maxCount - chosen.minCount) + 1);
+            }
 
-                    // Determine random count
-                    int count = chosen.minCount;
-                    if (chosen.maxCount > chosen.minCount) {
-                        count = chosen.minCount + random.nextInt((chosen.maxCount - chosen.minCount) + 1);
-                    }
-                    
-                    int xpReward = getXpReward(tradeLevel);
-                    
-                    ItemStack resultDilitio = new ItemStack(ModItems.DILITIO.get(), 1);
-                    resultDilitio.getOrCreateTag().putInt("RequiredLevel", tradeLevel);
-                    
-                    Item item = chosen.getItem();
-                    if (item == null || item == Items.AIR) item = Items.DIRT; // Fallback
-                    
-                    MerchantOffer newOffer = new MerchantOffer(
-                            new ItemStack(item, count),
-                            resultDilitio,
-                            12, xpReward, 0.05f
-                    );
-                    
-                    // Si el nivel requerido es mayor al actual, se marca como "Agotado" para que no se pueda tradear
-                    if (tradeLevel > currentVillagerLevel) {
-                        // Forzamos los usos al maximo para bloquearlo
-                        for (int j = 0; j < 12; j++) {
-                            newOffer.increaseUses();
-                        }
-                    }
-                    
-                    offers.add(newOffer);
+            Item item = chosen.getItem();
+            if (item == null || item == Items.AIR) item = Items.DIRT; // Fallback
+
+            MerchantOffer newOffer = new MerchantOffer(
+                    new ItemStack(item, count),
+                    new ItemStack(ModItems.DILITIO.get(), 1),
+                    MAX_USES, getXpReward(tradeLevel), 0.05f
+            );
+
+            // Si el nivel requerido es mayor al actual, se marca como agotado para bloquearlo
+            if (tradeLevel > currentVillagerLevel) {
+                for (int j = 0; j < MAX_USES; j++) {
+                    newOffer.increaseUses();
                 }
             }
+
+            offers.add(newOffer);
+            added++;
         }
+        return added;
+    }
+
+    private static TradeConfigData.TradeEntry pickWeighted(List<TradeConfigData.TradeEntry> entries, RandomSource random) {
+        int totalWeight = entries.stream().mapToInt(e -> e.weight).sum();
+        if (totalWeight <= 0) return null;
+
+        int randomWeight = random.nextInt(totalWeight);
+        int currentWeight = 0;
+        for (TradeConfigData.TradeEntry entry : entries) {
+            currentWeight += entry.weight;
+            if (randomWeight < currentWeight) {
+                return entry;
+            }
+        }
+        return null;
     }
 
     private static int getXpReward(int level) {
@@ -100,17 +102,5 @@ public final class DilitioTrades {
             case 5 -> 0; // Max level
             default -> 2;
         };
-    }
-
-    private static class ItemTrade {
-        public final ItemLike item;
-        public final int min;
-        public final int max;
-
-        public ItemTrade(ItemLike item, int min, int max) {
-            this.item = item;
-            this.min = min;
-            this.max = max;
-        }
     }
 }
