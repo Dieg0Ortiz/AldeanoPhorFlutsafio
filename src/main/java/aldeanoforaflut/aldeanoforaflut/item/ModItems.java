@@ -17,7 +17,7 @@ public class ModItems {
 
     // Moneda de los aldeanos transformables
     public static final RegistryObject<Item> DILITIO =
-            ITEMS.register("dilitio", () -> new Item(new Item.Properties().stacksTo(64)));
+            ITEMS.register("dilitio", () -> new DilitioItem(new Item.Properties().stacksTo(64)));
 
     // Tablet de Admin
     public static final RegistryObject<Item> PHORA_TABLET =

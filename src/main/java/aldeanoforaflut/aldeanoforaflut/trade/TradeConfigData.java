@@ -5,7 +5,9 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.Mth;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraftforge.registries.ForgeRegistries;
 
@@ -19,6 +21,7 @@ import java.util.List;
 public class TradeConfigData extends SavedData {
 
     private static final String DATA_NAME = "phora_trade_config";
+    public static final int MAX_ENTRIES = 256;
 
     public static class TradeEntry {
         public String itemId; // e.g. "minecraft:diamond"
@@ -161,8 +164,34 @@ public class TradeConfigData extends SavedData {
         return tag;
     }
 
+    /**
+     * Reemplaza el pool con datos enviados por un cliente, descartando entradas inválidas
+     * y limitando los valores a rangos seguros.
+     */
+    public void loadFromClient(CompoundTag tag) {
+        entries.clear();
+        ListTag list = tag.getList("Trades", Tag.TAG_COMPOUND);
+        int size = Math.min(list.size(), MAX_ENTRIES);
+        for (int i = 0; i < size; i++) {
+            TradeEntry entry = TradeEntry.load(list.getCompound(i));
+            ResourceLocation id = ResourceLocation.tryParse(entry.itemId);
+            if (id == null || !ForgeRegistries.ITEMS.containsKey(id) || entry.getItem() == Items.AIR) {
+                continue;
+            }
+            int maxStack = entry.getItem().getMaxStackSize();
+            int min = Mth.clamp(entry.minCount, 1, maxStack);
+            int max = Mth.clamp(entry.maxCount, min, maxStack);
+            entries.add(new TradeEntry(
+                    id.toString(), min, max,
+                    Mth.clamp(entry.weight, 1, 100),
+                    Mth.clamp(entry.requiredLevel, 1, 5)));
+        }
+        setDirty();
+    }
+
+    /** El pool es global: siempre se guarda en el Overworld, sin importar la dimensión. */
     public static TradeConfigData get(ServerLevel level) {
-        return level.getDataStorage().computeIfAbsent(
+        return level.getServer().overworld().getDataStorage().computeIfAbsent(
             TradeConfigData::new,
             TradeConfigData::new,
             DATA_NAME

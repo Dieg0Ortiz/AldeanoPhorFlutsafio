@@ -1,5 +1,6 @@
 package aldeanoforaflut.aldeanoforaflut.entity.client;
 
+import aldeanoforaflut.aldeanoforaflut.network.PhoraTradeInfoPacket;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -41,6 +42,7 @@ public class PhoraMerchantScreen extends AbstractContainerScreen<MerchantMenu> {
     private long passiveTicks = 0;
     private boolean dataRead = false;
     private int phoraEntityId = -1;
+    private PhoraTradeInfoPacket tradeInfo;
 
     public PhoraMerchantScreen(MerchantMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -54,25 +56,26 @@ public class PhoraMerchantScreen extends AbstractContainerScreen<MerchantMenu> {
         this.isOwner = owner;
     }
 
-    /** Read injected data from first trade's result NBT */
+    /** Lee los datos que el servidor envía en PhoraTradeInfoPacket al abrir el menú */
     private void readPhoraData() {
         if (dataRead) return;
-        MerchantOffers offers = this.menu.getOffers();
-        if (!offers.isEmpty()) {
-            ItemStack firstResult = offers.get(0).getResult();
-            if (firstResult.hasTag()) {
-                this.passiveTicks = firstResult.getTag().getLong("PhoraPassiveTicks");
-                int accessMode = firstResult.getTag().getInt("PhoraAccessMode");
-                this.isOwner = firstResult.getTag().getBoolean("PhoraIsOwner");
-                this.phoraEntityId = firstResult.getTag().getInt("PhoraEntityId");
-                this.accessModeText = switch (accessMode) {
-                    case 0 -> "Solo yo";
-                    case 1 -> "Mi Hermandad";
-                    default -> "Todos";
-                };
-                this.dataRead = true;
-            }
+        PhoraTradeInfoPacket info = ClientPacketHandler.getTradeInfo(this.menu.containerId);
+        if (info != null) {
+            this.tradeInfo = info;
+            this.passiveTicks = info.passiveTicks();
+            this.isOwner = info.isOwner();
+            this.phoraEntityId = info.entityId();
+            this.accessModeText = switch (info.accessMode()) {
+                case 0 -> "Solo yo";
+                case 1 -> "Mi Hermandad";
+                default -> "Todos";
+            };
+            this.dataRead = true;
         }
+    }
+
+    private int getRequiredLevel(int offerIndex) {
+        return this.tradeInfo != null ? this.tradeInfo.getOfferLevel(offerIndex) : 0;
     }
 
     private int getPassivePercent() {
@@ -285,7 +288,7 @@ public class PhoraMerchantScreen extends AbstractContainerScreen<MerchantMenu> {
                     int j1 = k + 2;
 
                     // Check if locked
-                    int reqLvl = merchantoffer.getResult().hasTag() ? merchantoffer.getResult().getTag().getInt("RequiredLevel") : 0;
+                    int reqLvl = this.getRequiredLevel(i1);
                     boolean isLocked = reqLvl > 0 && merchantoffer.isOutOfStock();
 
                     if (isLocked) {

@@ -42,7 +42,7 @@ public class DilitioRestockHandler {
         }
 
         data.putLong(LAST_RESTOCK_DAY_KEY, currentDay);
-        if (DilitioTrades.restock(merchant.getOffers())) {
+        if (DilitioTrades.restock(merchant.getOffers(), merchant::isOfferUnlocked)) {
             merchant.playSound(SoundEvents.WANDERING_TRADER_YES, 1.0f, 1.0f);
         }
     }

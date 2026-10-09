@@ -1,16 +1,21 @@
 package aldeanoforaflut.aldeanoforaflut.entity;
 
 import aldeanoforaflut.aldeanoforaflut.Aldeanoforaflut;
+import aldeanoforaflut.aldeanoforaflut.network.ModMessages;
+import aldeanoforaflut.aldeanoforaflut.network.PhoraTradeInfoPacket;
 import aldeanoforaflut.aldeanoforaflut.trade.DilitioTrades;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.npc.WanderingTrader;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.trading.MerchantOffer;
 import net.minecraft.world.item.trading.MerchantOffers;
 import net.minecraft.world.level.Level;
@@ -23,6 +28,8 @@ import software.bernie.geckolib.core.animation.RawAnimation;
 import software.bernie.geckolib.core.object.PlayState;
 import software.bernie.geckolib.util.GeckoLibUtil;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 public class TransformableMerchantEntity extends WanderingTrader implements GeoEntity {
@@ -45,6 +52,13 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
 
     // Barra pasiva (ticks acumulados para progreso lento)
     private long passiveTicks = 0;
+
+    // Nivel requerido de cada oferta, alineado por índice con this.offers.
+    // Se guarda aquí y no en el ítem resultado para que el Dilitio siempre se apile.
+    private final List<Integer> offerLevels = new ArrayList<>();
+    private static final String[] LEGACY_RESULT_TAGS = {
+            "RequiredLevel", "PhoraPassiveTicks", "PhoraAccessMode", "PhoraIsOwner", "PhoraEntityId"
+    };
 
     // --- NAMETAG: NUNCA mostrar sobre la cabeza ---
     @Override
@@ -86,6 +100,14 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
     public int getPhoraLevel() { return this.phoraLevel; }
 
     public long getPassiveTicks() { return this.passiveTicks; }
+
+    public int getOfferLevel(int index) {
+        return index >= 0 && index < this.offerLevels.size() ? this.offerLevels.get(index) : 0;
+    }
+
+    public boolean isOfferUnlocked(int index) {
+        return getOfferLevel(index) <= this.phoraLevel;
+    }
 
     public TransformableMerchantEntity(EntityType<? extends WanderingTrader> entityType, Level level) {
         super(entityType, level);
@@ -162,15 +184,19 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
                 return InteractionResult.FAIL;
             }
             if (this.offers != null && !this.offers.isEmpty()) {
-                // Inyectar datos extra en el primer trade para que el cliente pueda leerlos
-                net.minecraft.world.item.ItemStack firstResult = this.offers.get(0).getResult();
-                firstResult.getOrCreateTag().putLong("PhoraPassiveTicks", this.passiveTicks);
-                firstResult.getOrCreateTag().putInt("PhoraAccessMode", this.accessMode);
-                firstResult.getOrCreateTag().putBoolean("PhoraIsOwner", this.isOwner(player));
-                firstResult.getOrCreateTag().putInt("PhoraEntityId", this.getId());
-
                 this.setTradingPlayer(player);
                 this.openTradingScreen(player, this.getDisplayName(), this.phoraLevel);
+
+                // Datos extra para la pantalla Phora (van por paquete, no en el NBT del resultado)
+                if (player instanceof ServerPlayer serverPlayer) {
+                    int[] levels = new int[this.offers.size()];
+                    for (int i = 0; i < levels.length; i++) {
+                        levels[i] = getOfferLevel(i);
+                    }
+                    ModMessages.sendToPlayer(new PhoraTradeInfoPacket(
+                            serverPlayer.containerMenu.containerId, this.getId(), this.passiveTicks,
+                            this.accessMode, this.isOwner(player), levels), serverPlayer);
+                }
                 return InteractionResult.SUCCESS;
             }
         }
@@ -182,20 +208,21 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
         if (this.offers == null) {
             this.offers = new MerchantOffers();
             // Generar todos los trades hasta el nivel 5 desde el inicio
+            this.offerLevels.clear();
             if (!this.level().isClientSide) {
                 for (int lvl = 1; lvl <= 5; lvl++) {
-                    DilitioTrades.addTradesForLevel(this.offers, this.random, lvl, this.phoraLevel, (net.minecraft.server.level.ServerLevel) this.level());
+                    int added = DilitioTrades.addTradesForLevel(this.offers, this.random, lvl, this.phoraLevel, (ServerLevel) this.level());
+                    for (int i = 0; i < added; i++) {
+                        this.offerLevels.add(lvl);
+                    }
                 }
             }
         } else {
             // Desbloquear tradeos del nuevo nivel alcanzado
-            for (MerchantOffer offer : this.offers) {
-                net.minecraft.world.item.ItemStack result = offer.getResult();
-                if (result.hasTag() && result.getTag().contains("RequiredLevel")) {
-                    int reqLvl = result.getTag().getInt("RequiredLevel");
-                    if (reqLvl <= this.phoraLevel) {
-                        offer.resetUses(); // Desbloqueado!
-                    }
+            for (int i = 0; i < this.offers.size(); i++) {
+                int reqLvl = getOfferLevel(i);
+                if (reqLvl > 0 && reqLvl <= this.phoraLevel) {
+                    this.offers.get(i).resetUses(); // Desbloqueado!
                 }
             }
         }
@@ -260,6 +287,7 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
         compound.putInt("PhoraXp", this.phoraXp);
         compound.putInt("PhoraAccessMode", this.accessMode);
         compound.putLong("PhoraPassiveTicks", this.passiveTicks);
+        compound.putIntArray("PhoraOfferLevels", this.offerLevels);
         if (this.ownerUUID != null) {
             compound.putUUID("PhoraOwner", this.ownerUUID);
         }
@@ -287,6 +315,40 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
         }
         if (compound.hasUUID("PhoraOwner")) {
             this.ownerUUID = compound.getUUID("PhoraOwner");
+        }
+        loadOfferLevels(compound);
+    }
+
+    private void loadOfferLevels(CompoundTag compound) {
+        // Sin ofertas guardadas se conservan las generadas en el constructor junto con sus niveles
+        if (!compound.contains("Offers")) return;
+        this.offerLevels.clear();
+        boolean hasSavedLevels = compound.contains("PhoraOfferLevels");
+        if (hasSavedLevels) {
+            for (int lvl : compound.getIntArray("PhoraOfferLevels")) {
+                this.offerLevels.add(lvl);
+            }
+        }
+        if (this.offers == null) return;
+
+        // Mundos guardados antes de este cambio: el nivel venía en el NBT del resultado.
+        // Se recupera y se limpia el resultado para que el Dilitio vuelva a apilarse.
+        for (MerchantOffer offer : this.offers) {
+            ItemStack result = offer.getResult();
+            if (!result.hasTag()) {
+                if (!hasSavedLevels) this.offerLevels.add(1);
+                continue;
+            }
+            CompoundTag tag = result.getTag();
+            if (!hasSavedLevels) {
+                this.offerLevels.add(tag.contains("RequiredLevel") ? tag.getInt("RequiredLevel") : 1);
+            }
+            for (String key : LEGACY_RESULT_TAGS) {
+                tag.remove(key);
+            }
+            if (tag.isEmpty()) {
+                result.setTag(null);
+            }
         }
     }
 

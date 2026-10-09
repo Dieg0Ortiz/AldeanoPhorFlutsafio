@@ -39,6 +39,12 @@ public class ModMessages {
                 .encoder(SaveTradeConfigPacket::toBytes)
                 .consumerMainThread(SaveTradeConfigPacket::handle)
                 .add();
+
+        net.messageBuilder(PhoraTradeInfoPacket.class, id())
+                .decoder(PhoraTradeInfoPacket::new)
+                .encoder(PhoraTradeInfoPacket::toBytes)
+                .consumerMainThread(PhoraTradeInfoPacket::handle)
+                .add();
     }
 
     public static <MSG> void sendToServer(MSG message) {
