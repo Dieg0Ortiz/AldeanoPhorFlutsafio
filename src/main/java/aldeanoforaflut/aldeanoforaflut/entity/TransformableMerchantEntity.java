@@ -1,17 +1,23 @@
 package aldeanoforaflut.aldeanoforaflut.entity;
 
 import aldeanoforaflut.aldeanoforaflut.Aldeanoforaflut;
+import aldeanoforaflut.aldeanoforaflut.TransformableMerchantBlock;
 import aldeanoforaflut.aldeanoforaflut.network.ModMessages;
 import aldeanoforaflut.aldeanoforaflut.network.PhoraTradeInfoPacket;
 import aldeanoforaflut.aldeanoforaflut.trade.DilitioTrades;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.npc.WanderingTrader;
 import net.minecraft.world.entity.player.Player;
@@ -19,6 +25,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.trading.MerchantOffer;
 import net.minecraft.world.item.trading.MerchantOffers;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
 import software.bernie.geckolib.core.animation.AnimatableManager;
@@ -148,6 +155,40 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
                 this.passiveTicks++;
             }
         }
+    }
+
+    // --- INMORTAL: solo se quita reiniciándolo (vuelve a ser bloque) ---
+    // Daño que ignora invulnerabilidad (/kill, caer al vacío) sí aplica, para que los admins puedan limpiar
+    @Override
+    public boolean isInvulnerableTo(DamageSource source) {
+        return !source.is(DamageTypeTags.BYPASSES_INVULNERABILITY) || super.isInvulnerableTo(source);
+    }
+
+    /**
+     * Apaga el Phora: cierra el comercio, lo vuelve a colocar como bloque en su posición
+     * (o lo suelta como ítem si el lugar está ocupado) y elimina la entidad.
+     * Al encenderlo de nuevo se crea una entidad nueva con tradeos distintos.
+     */
+    public void resetToBlock() {
+        if (this.level().isClientSide || this.isRemoved()) return;
+
+        Player trader = this.getTradingPlayer();
+        if (trader != null) {
+            trader.closeContainer();
+            this.setTradingPlayer(null);
+        }
+
+        BlockPos pos = this.blockPosition();
+        BlockState blockState = Aldeanoforaflut.MERCHANT_BLOCK.get().defaultBlockState()
+                .setValue(TransformableMerchantBlock.FACING, Direction.fromYRot(this.getYRot()));
+        if (this.level().getBlockState(pos).canBeReplaced()) {
+            this.level().setBlockAndUpdate(pos, blockState);
+        } else {
+            this.spawnAtLocation(new ItemStack(Aldeanoforaflut.MERCHANT_BLOCK_ITEM.get()));
+        }
+
+        this.playSound(SoundEvents.BEACON_DEACTIVATE, 1.0f, 1.0f);
+        this.discard();
     }
 
     @Override

@@ -1,9 +1,13 @@
 package aldeanoforaflut.aldeanoforaflut.entity.client;
 
+import aldeanoforaflut.aldeanoforaflut.network.ModMessages;
+import aldeanoforaflut.aldeanoforaflut.network.PhoraResetPacket;
 import aldeanoforaflut.aldeanoforaflut.network.PhoraTradeInfoPacket;
 import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
@@ -43,6 +47,14 @@ public class PhoraMerchantScreen extends AbstractContainerScreen<MerchantMenu> {
     private boolean dataRead = false;
     private int phoraEntityId = -1;
     private PhoraTradeInfoPacket tradeInfo;
+
+    // Botón de reinicio (apaga el Phora y lo vuelve bloque)
+    private static final Component RESET_LABEL = Component.literal("↻");
+    private static final Component RESET_TOOLTIP = Component.literal("Reiniciar: vuelve a ser bloque y al encenderlo tendrá tradeos distintos");
+    private static final Component RESET_CONFIRM_TOOLTIP = Component.literal("Haz clic otra vez para confirmar. Se pierden el nivel y los tradeos.").withStyle(ChatFormatting.RED);
+    private static final long RESET_CONFIRM_MS = 3000L;
+    private Button resetButton;
+    private long resetArmedUntil = 0;
 
     public PhoraMerchantScreen(MerchantMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -103,6 +115,36 @@ public class PhoraMerchantScreen extends AbstractContainerScreen<MerchantMenu> {
                 }
             }));
             k += 20;
+        }
+
+        this.resetButton = this.addRenderableWidget(Button.builder(RESET_LABEL, btn -> this.onResetClicked())
+                .bounds(i + this.imageWidth - 20, j + 3, 16, 14)
+                .tooltip(Tooltip.create(RESET_TOOLTIP))
+                .build());
+        this.resetButton.visible = false;
+    }
+
+    /** Primer clic arma el botón; el segundo (antes de RESET_CONFIRM_MS) envía el reinicio. */
+    private void onResetClicked() {
+        if (this.phoraEntityId == -1) return;
+        long now = System.currentTimeMillis();
+        if (now < this.resetArmedUntil) {
+            ModMessages.sendToServer(new PhoraResetPacket(this.phoraEntityId));
+            this.onClose();
+        } else {
+            this.resetArmedUntil = now + RESET_CONFIRM_MS;
+            this.resetButton.setMessage(RESET_LABEL.copy().withStyle(ChatFormatting.RED));
+            this.resetButton.setTooltip(Tooltip.create(RESET_CONFIRM_TOOLTIP));
+        }
+    }
+
+    private void updateResetButton() {
+        boolean canReset = this.isOwner || (this.minecraft.player != null && this.minecraft.player.hasPermissions(2));
+        this.resetButton.visible = canReset && this.phoraEntityId != -1;
+        if (this.resetArmedUntil != 0 && System.currentTimeMillis() >= this.resetArmedUntil) {
+            this.resetArmedUntil = 0;
+            this.resetButton.setMessage(RESET_LABEL);
+            this.resetButton.setTooltip(Tooltip.create(RESET_TOOLTIP));
         }
     }
 
@@ -264,7 +306,8 @@ public class PhoraMerchantScreen extends AbstractContainerScreen<MerchantMenu> {
 
     @Override
     public void render(GuiGraphics gfx, int mouseX, int mouseY, float partialTick) {
-        this.readPhoraData(); // Read injected data from first trade
+        this.readPhoraData();
+        this.updateResetButton();
         this.renderBackground(gfx);
         super.render(gfx, mouseX, mouseY, partialTick);
         MerchantOffers merchantoffers = this.menu.getOffers();
