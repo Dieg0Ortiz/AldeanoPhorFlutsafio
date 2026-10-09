@@ -19,7 +19,7 @@ public class ModClientForgeEvents {
     @SubscribeEvent
     public static void onScreenOpen(ScreenEvent.Opening event) {
         if (event.getScreen() instanceof MerchantScreen merchantScreen) {
-            if (merchantScreen.getTitle().getString().contains("Aldeano Phora")) {
+            if (merchantScreen.getTitle().getString().startsWith(TransformableMerchantEntity.TITLE_PREFIX)) {
                 Player player = Minecraft.getInstance().player;
                 PhoraMerchantScreen customScreen = new PhoraMerchantScreen(
                         merchantScreen.getMenu(),

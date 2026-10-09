@@ -71,6 +71,7 @@ public class TransformableMerchantBlock extends HorizontalDirectionalBlock {
                     
                     // Guardar dueño
                     merchant.setOwnerUUID(player.getUUID());
+                    merchant.setOwnerName(player.getName().getString());
 
                     level.addFreshEntity(merchant);
                 }

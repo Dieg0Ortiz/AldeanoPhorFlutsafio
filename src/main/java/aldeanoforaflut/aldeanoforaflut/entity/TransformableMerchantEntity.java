@@ -8,6 +8,7 @@ import aldeanoforaflut.aldeanoforaflut.trade.DilitioTrades;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -52,8 +53,11 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
     private int phoraLevel = 1;
     private int phoraXp = 0;
 
+    public static final String TITLE_PREFIX = "Aldeano Phora de Recursos";
+
     // Dueño y acceso
     private UUID ownerUUID = null;
+    private String ownerName = null;
     // 0 = Solo yo, 1 = Mi Hermandad, 2 = Todos
     private int accessMode = 2;
 
@@ -80,6 +84,21 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
 
     public UUID getOwnerUUID() { return this.ownerUUID; }
     public void setOwnerUUID(UUID uuid) { this.ownerUUID = uuid; }
+
+    public String getOwnerName() { return this.ownerName; }
+    public void setOwnerName(String name) { this.ownerName = name; }
+
+    /** Título del GUI de comercio. Empieza siempre con TITLE_PREFIX, que el cliente usa para detectar la pantalla Phora. */
+    public Component getTradeTitle() {
+        if (this.ownerName != null && !this.ownerName.isEmpty()) {
+            return Component.literal(TITLE_PREFIX + " de " + this.ownerName);
+        }
+        // Phoras anteriores a este cambio: el nombre del dueño estaba en el nombre personalizado
+        if (this.hasCustomName() && this.getCustomName().getString().startsWith(TITLE_PREFIX)) {
+            return this.getCustomName();
+        }
+        return Component.literal(TITLE_PREFIX);
+    }
 
     public int getAccessMode() { return this.accessMode; }
     public void setAccessMode(int mode) { this.accessMode = mode % 3; }
@@ -226,7 +245,7 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
             }
             if (this.offers != null && !this.offers.isEmpty()) {
                 this.setTradingPlayer(player);
-                this.openTradingScreen(player, this.getDisplayName(), this.phoraLevel);
+                this.openTradingScreen(player, this.getTradeTitle(), this.phoraLevel);
 
                 // Datos extra para la pantalla Phora (van por paquete, no en el NBT del resultado)
                 if (player instanceof ServerPlayer serverPlayer) {
@@ -332,6 +351,9 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
         if (this.ownerUUID != null) {
             compound.putUUID("PhoraOwner", this.ownerUUID);
         }
+        if (this.ownerName != null) {
+            compound.putString("PhoraOwnerName", this.ownerName);
+        }
     }
 
     @Override
@@ -356,6 +378,9 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
         }
         if (compound.hasUUID("PhoraOwner")) {
             this.ownerUUID = compound.getUUID("PhoraOwner");
+        }
+        if (compound.contains("PhoraOwnerName")) {
+            this.ownerName = compound.getString("PhoraOwnerName");
         }
         loadOfferLevels(compound);
     }
