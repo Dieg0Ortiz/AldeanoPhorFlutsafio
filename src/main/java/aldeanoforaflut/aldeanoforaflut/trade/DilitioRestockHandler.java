@@ -3,7 +3,7 @@ package aldeanoforaflut.aldeanoforaflut.trade;
 import aldeanoforaflut.aldeanoforaflut.Aldeanoforaflut;
 import aldeanoforaflut.aldeanoforaflut.entity.TransformableMerchantEntity;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.sounds.SoundEvents;
+import aldeanoforaflut.aldeanoforaflut.sound.ModSounds;
 import net.minecraftforge.event.entity.living.LivingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -43,7 +43,7 @@ public class DilitioRestockHandler {
 
         data.putLong(LAST_RESTOCK_DAY_KEY, currentDay);
         if (DilitioTrades.restock(merchant.getOffers(), merchant::isOfferUnlocked)) {
-            merchant.playSound(SoundEvents.WANDERING_TRADER_YES, 1.0f, 1.0f);
+            merchant.playSound(ModSounds.PHORA_RESTOCK.get(), 1.0f, 1.0f);
         }
     }
 }

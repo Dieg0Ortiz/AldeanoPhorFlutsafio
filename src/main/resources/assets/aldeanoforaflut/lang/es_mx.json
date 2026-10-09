@@ -1,4 +1,13 @@
 {
   "item.aldeanoforaflut.dilitio": "Dilitio",
-  "block.aldeanoforaflut.transformable_merchant_block": "Aldeano Phor"
+  "block.aldeanoforaflut.transformable_merchant_block": "Aldeano Phor",
+  "subtitles.aldeanoforaflut.phora.power_on": "Phora se enciende",
+  "subtitles.aldeanoforaflut.phora.boot_ready": "Phora listo",
+  "subtitles.aldeanoforaflut.phora.power_off": "Phora se apaga",
+  "subtitles.aldeanoforaflut.phora.ambient": "Phora emite pitidos",
+  "subtitles.aldeanoforaflut.phora.processing": "Phora procesa",
+  "subtitles.aldeanoforaflut.phora.accept": "Phora acepta",
+  "subtitles.aldeanoforaflut.phora.deny": "Phora rechaza",
+  "subtitles.aldeanoforaflut.phora.trade": "Phora comercia",
+  "subtitles.aldeanoforaflut.phora.restock": "Phora se reabastece"
 }

@@ -1,17 +1,25 @@
 package aldeanoforaflut.aldeanoforaflut.entity;
 
 import aldeanoforaflut.aldeanoforaflut.Aldeanoforaflut;
+import aldeanoforaflut.aldeanoforaflut.TransformableMerchantBlock;
 import aldeanoforaflut.aldeanoforaflut.network.ModMessages;
 import aldeanoforaflut.aldeanoforaflut.network.PhoraTradeInfoPacket;
+import aldeanoforaflut.aldeanoforaflut.sound.ModSounds;
 import aldeanoforaflut.aldeanoforaflut.trade.DilitioTrades;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.npc.WanderingTrader;
 import net.minecraft.world.entity.player.Player;
@@ -19,6 +27,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.trading.MerchantOffer;
 import net.minecraft.world.item.trading.MerchantOffers;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
 import software.bernie.geckolib.core.animation.AnimatableManager;
@@ -45,8 +54,11 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
     private int phoraLevel = 1;
     private int phoraXp = 0;
 
+    public static final String TITLE_PREFIX = "Aldeano Phora de Recursos";
+
     // Dueño y acceso
     private UUID ownerUUID = null;
+    private String ownerName = null;
     // 0 = Solo yo, 1 = Mi Hermandad, 2 = Todos
     private int accessMode = 2;
 
@@ -73,6 +85,21 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
 
     public UUID getOwnerUUID() { return this.ownerUUID; }
     public void setOwnerUUID(UUID uuid) { this.ownerUUID = uuid; }
+
+    public String getOwnerName() { return this.ownerName; }
+    public void setOwnerName(String name) { this.ownerName = name; }
+
+    /** Título del GUI de comercio. Empieza siempre con TITLE_PREFIX, que el cliente usa para detectar la pantalla Phora. */
+    public Component getTradeTitle() {
+        if (this.ownerName != null && !this.ownerName.isEmpty()) {
+            return Component.literal(TITLE_PREFIX + " de " + this.ownerName);
+        }
+        // Phoras anteriores a este cambio: el nombre del dueño estaba en el nombre personalizado
+        if (this.hasCustomName() && this.getCustomName().getString().startsWith(TITLE_PREFIX)) {
+            return this.getCustomName();
+        }
+        return Component.literal(TITLE_PREFIX);
+    }
 
     public int getAccessMode() { return this.accessMode; }
     public void setAccessMode(int mode) { this.accessMode = mode % 3; }
@@ -139,15 +166,90 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
         if (!this.level().isClientSide) {
             if (getEntityState() == 1) {
                 turnOnTicks++;
+                if (turnOnTicks == 1) {
+                    this.playSound(ModSounds.PHORA_POWER_ON.get(), 1.0f, 1.0f);
+                }
                 if (turnOnTicks >= 40) {
                     setEntityState(2);
                     this.setNoAi(false);
+                    this.playSound(ModSounds.PHORA_BOOT_READY.get(), 1.0f, 1.0f);
                 }
             } else if (getEntityState() == 2) {
                 // Barra pasiva: incrementar cada tick (1% cada ~3 horas = 216000 ticks)
                 this.passiveTicks++;
             }
         }
+    }
+
+    // --- INMORTAL: solo se quita reiniciándolo (vuelve a ser bloque) ---
+    // Daño que ignora invulnerabilidad (/kill, caer al vacío) sí aplica, para que los admins puedan limpiar
+    @Override
+    public boolean isInvulnerableTo(DamageSource source) {
+        return !source.is(DamageTypeTags.BYPASSES_INVULNERABILITY) || super.isInvulnerableTo(source);
+    }
+
+    /**
+     * Apaga el Phora: cierra el comercio, lo vuelve a colocar como bloque en su posición
+     * (o lo suelta como ítem si el lugar está ocupado) y elimina la entidad.
+     * Al encenderlo de nuevo se crea una entidad nueva con tradeos distintos.
+     */
+    public void resetToBlock() {
+        if (this.level().isClientSide || this.isRemoved()) return;
+
+        Player trader = this.getTradingPlayer();
+        if (trader != null) {
+            trader.closeContainer();
+            this.setTradingPlayer(null);
+        }
+
+        BlockPos pos = this.blockPosition();
+        BlockState blockState = Aldeanoforaflut.MERCHANT_BLOCK.get().defaultBlockState()
+                .setValue(TransformableMerchantBlock.FACING, Direction.fromYRot(this.getYRot()));
+        if (this.level().getBlockState(pos).canBeReplaced()) {
+            this.level().setBlockAndUpdate(pos, blockState);
+        } else {
+            this.spawnAtLocation(new ItemStack(Aldeanoforaflut.MERCHANT_BLOCK_ITEM.get()));
+        }
+
+        this.playSound(ModSounds.PHORA_POWER_OFF.get(), 1.0f, 1.0f);
+        this.discard();
+    }
+
+    // --- SONIDOS: computadora de ciencia ficción en lugar de la voz del aldeano ---
+    @Override
+    protected SoundEvent getAmbientSound() {
+        if (!isActive()) return null;
+        return this.isTrading() ? ModSounds.PHORA_PROCESSING.get() : ModSounds.PHORA_AMBIENT.get();
+    }
+
+    @Override
+    public int getAmbientSoundInterval() {
+        return 240;
+    }
+
+    @Override
+    protected SoundEvent getHurtSound(DamageSource source) {
+        return null; // Es invulnerable: no hay quejido
+    }
+
+    @Override
+    protected SoundEvent getDeathSound() {
+        return ModSounds.PHORA_POWER_OFF.get();
+    }
+
+    @Override
+    protected SoundEvent getTradeUpdatedSound(boolean hasResult) {
+        return hasResult ? ModSounds.PHORA_ACCEPT.get() : ModSounds.PHORA_DENY.get();
+    }
+
+    @Override
+    public SoundEvent getNotifyTradeSound() {
+        return ModSounds.PHORA_TRADE.get();
+    }
+
+    @Override
+    public float getVoicePitch() {
+        return 1.0f; // Sin la variación aleatoria de la voz de aldeano
     }
 
     @Override
@@ -185,7 +287,7 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
             }
             if (this.offers != null && !this.offers.isEmpty()) {
                 this.setTradingPlayer(player);
-                this.openTradingScreen(player, this.getDisplayName(), this.phoraLevel);
+                this.openTradingScreen(player, this.getTradeTitle(), this.phoraLevel);
 
                 // Datos extra para la pantalla Phora (van por paquete, no en el NBT del resultado)
                 if (player instanceof ServerPlayer serverPlayer) {
@@ -291,6 +393,9 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
         if (this.ownerUUID != null) {
             compound.putUUID("PhoraOwner", this.ownerUUID);
         }
+        if (this.ownerName != null) {
+            compound.putString("PhoraOwnerName", this.ownerName);
+        }
     }
 
     @Override
@@ -315,6 +420,9 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
         }
         if (compound.hasUUID("PhoraOwner")) {
             this.ownerUUID = compound.getUUID("PhoraOwner");
+        }
+        if (compound.contains("PhoraOwnerName")) {
+            this.ownerName = compound.getString("PhoraOwnerName");
         }
         loadOfferLevels(compound);
     }

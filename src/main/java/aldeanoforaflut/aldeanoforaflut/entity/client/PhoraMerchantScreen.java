@@ -1,9 +1,13 @@
 package aldeanoforaflut.aldeanoforaflut.entity.client;
 
+import aldeanoforaflut.aldeanoforaflut.network.ModMessages;
+import aldeanoforaflut.aldeanoforaflut.network.PhoraResetPacket;
 import aldeanoforaflut.aldeanoforaflut.network.PhoraTradeInfoPacket;
 import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
@@ -23,7 +27,6 @@ import net.minecraftforge.api.distmarker.OnlyIn;
 public class PhoraMerchantScreen extends AbstractContainerScreen<MerchantMenu> {
     private static final ResourceLocation VILLAGER_LOCATION = new ResourceLocation("textures/gui/container/villager2.png");
     private static final int NUMBER_OF_OFFER_BUTTONS = 7;
-    private static final Component TRADES_LABEL = Component.translatable("merchant.trades");
     private static final Component DEPRECATED_TOOLTIP = Component.translatable("merchant.deprecated");
 
     // 1% cada 3 horas in-game = 216000 ticks por 1%. Total 100% = 21600000 ticks
@@ -43,6 +46,22 @@ public class PhoraMerchantScreen extends AbstractContainerScreen<MerchantMenu> {
     private boolean dataRead = false;
     private int phoraEntityId = -1;
     private PhoraTradeInfoPacket tradeInfo;
+
+    // Fila superior de la zona de tradeos: barra verde pasiva + botón de reinicio
+    private static final int TOP_ROW_Y = 2;
+    private static final int TOP_ROW_H = 11;
+    private static final int PASSIVE_BAR_X = 4;
+    private static final int PASSIVE_BAR_W = 80;
+    private static final int RESET_BUTTON_X = 88;
+    private static final int RESET_BUTTON_SIZE = 11;
+
+    // Botón de reinicio (apaga el Phora y lo vuelve bloque)
+    private static final String RESET_SYMBOL = "↻";
+    private static final Component RESET_TOOLTIP = Component.literal("Reiniciar: vuelve a ser bloque y al encenderlo tendrá tradeos distintos");
+    private static final Component RESET_CONFIRM_TOOLTIP = Component.literal("Haz clic otra vez para confirmar. Se pierden el nivel y los tradeos.").withStyle(ChatFormatting.RED);
+    private static final long RESET_CONFIRM_MS = 3000L;
+    private Button resetButton;
+    private long resetArmedUntil = 0;
 
     public PhoraMerchantScreen(MerchantMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -104,13 +123,42 @@ public class PhoraMerchantScreen extends AbstractContainerScreen<MerchantMenu> {
             }));
             k += 20;
         }
+
+        this.resetButton = this.addRenderableWidget(new PhoraResetButton(
+                i + RESET_BUTTON_X, j + TOP_ROW_Y, btn -> this.onResetClicked()));
+        this.resetButton.setTooltip(Tooltip.create(RESET_TOOLTIP));
+        this.resetButton.visible = false;
+    }
+
+    private boolean isResetArmed() {
+        return System.currentTimeMillis() < this.resetArmedUntil;
+    }
+
+    /** Primer clic arma el botón; el segundo (antes de RESET_CONFIRM_MS) envía el reinicio. */
+    private void onResetClicked() {
+        if (this.phoraEntityId == -1) return;
+        if (this.isResetArmed()) {
+            ModMessages.sendToServer(new PhoraResetPacket(this.phoraEntityId));
+            this.onClose();
+        } else {
+            this.resetArmedUntil = System.currentTimeMillis() + RESET_CONFIRM_MS;
+            this.resetButton.setTooltip(Tooltip.create(RESET_CONFIRM_TOOLTIP));
+        }
+    }
+
+    private void updateResetButton() {
+        boolean canReset = this.isOwner || (this.minecraft.player != null && this.minecraft.player.hasPermissions(2));
+        this.resetButton.visible = canReset && this.phoraEntityId != -1;
+        if (this.resetArmedUntil != 0 && !this.isResetArmed()) {
+            this.resetArmedUntil = 0;
+            this.resetButton.setTooltip(Tooltip.create(RESET_TOOLTIP));
+        }
     }
 
     @Override
     protected void renderLabels(GuiGraphics gfx, int mouseX, int mouseY) {
-        // 1. Title above GUI (fuera del panel, centrado)
-        int titleWidth = this.font.width(this.title);
-        gfx.drawString(this.font, this.title, this.imageWidth / 2 - titleWidth / 2, -12, 0xFFFFFF, true);
+        // 1. Título arriba de todo, alineado a la izquierda: "Aldeano Phora de Recursos de <jugador>"
+        gfx.drawString(this.font, this.title, 0, -12, 0xFFFFFF, true);
 
         // 2. "Nivel X" text above progress bar
         int level = this.menu.getTraderLevel();
@@ -124,11 +172,7 @@ public class PhoraMerchantScreen extends AbstractContainerScreen<MerchantMenu> {
         // 3. "Inventario" label
         gfx.drawString(this.font, this.playerInventoryTitle, this.inventoryLabelX, this.inventoryLabelY, 0xAAAAAA, false);
 
-        // 4. "Trades" label on left
-        int tradesW = this.font.width(TRADES_LABEL);
-        gfx.drawString(this.font, TRADES_LABEL, 5 - tradesW / 2 + 48, 6, 0xFFFFFF, false);
-
-        // 5. Access button text (only for owner)
+        // 4. Access button text (only for owner)
         if (this.isOwner) {
             Component accessComp = Component.literal("Acceso: " + this.accessModeText + " >");
             int accessW = this.font.width(accessComp);
@@ -157,18 +201,19 @@ public class PhoraMerchantScreen extends AbstractContainerScreen<MerchantMenu> {
         gfx.fill(i + 4, j + 15, i + 99, j + 158, 0xFF0D0D0D);
         drawBorder(gfx, i + 4, j + 15, 95, 143, 0xFFFF8C00);
 
-        // Barra verde pasiva (arriba de la lista de trades)
+        // Barra verde pasiva (arriba de la lista de trades, a la izquierda del botón de reinicio)
         {
-            int barX = i + 5;
-            int barY = j + 12;
-            int barW = 92;
-            int barH = 3;
+            int barX = i + PASSIVE_BAR_X;
+            int barY = j + TOP_ROW_Y;
+            int barW = PASSIVE_BAR_W;
+            int barH = TOP_ROW_H;
             gfx.fill(barX, barY, barX + barW, barY + barH, 0xFF222222);
             int pct = this.getPassivePercent();
             if (pct > 0) {
-                int fillW = Math.min(pct * barW / 100, barW);
-                gfx.fill(barX, barY, barX + fillW, barY + barH, 0xFF44AA44);
+                int fillW = Math.min(pct * (barW - 2) / 100, barW - 2);
+                gfx.fill(barX + 1, barY + 1, barX + 1 + fillW, barY + barH - 1, 0xFF44DD44);
             }
+            drawBorder(gfx, barX, barY, barW, barH, 0xFFFF8C00);
         }
 
         // Redraw right panel (trade + inventory area)
@@ -264,7 +309,8 @@ public class PhoraMerchantScreen extends AbstractContainerScreen<MerchantMenu> {
 
     @Override
     public void render(GuiGraphics gfx, int mouseX, int mouseY, float partialTick) {
-        this.readPhoraData(); // Read injected data from first trade
+        this.readPhoraData();
+        this.updateResetButton();
         this.renderBackground(gfx);
         super.render(gfx, mouseX, mouseY, partialTick);
         MerchantOffers merchantoffers = this.menu.getOffers();
@@ -304,9 +350,10 @@ public class PhoraMerchantScreen extends AbstractContainerScreen<MerchantMenu> {
 
                     // Arrow or "Nv> X" text
                     if (isLocked) {
+                        // Alineado a la derecha para terminar justo antes del ítem resultado (x = i + 5 + 68)
                         String nvText = "Nv> " + reqLvl;
                         int textWidth = this.font.width(nvText);
-                        gfx.drawString(this.font, nvText, i + 5 + 35 + 25 - textWidth / 2, j1 + 4, 0xFFFFFF, true);
+                        gfx.drawString(this.font, nvText, i + 5 + 66 - textWidth, j1 + 4, 0xFFFFFF, true);
                     } else {
                         this.renderButtonArrows(gfx, merchantoffer, i, j1);
                     }
@@ -439,6 +486,31 @@ public class PhoraMerchantScreen extends AbstractContainerScreen<MerchantMenu> {
         }
 
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    /** Botón cuadrado pequeño con el símbolo de reinicio; se pone rojo mientras espera confirmación. */
+    @OnlyIn(Dist.CLIENT)
+    class PhoraResetButton extends Button {
+
+        PhoraResetButton(int x, int y, Button.OnPress onPress) {
+            super(x, y, RESET_BUTTON_SIZE, RESET_BUTTON_SIZE, Component.literal(RESET_SYMBOL), onPress, DEFAULT_NARRATION);
+        }
+
+        @Override
+        protected void renderWidget(GuiGraphics gfx, int mouseX, int mouseY, float partialTick) {
+            boolean armed = PhoraMerchantScreen.this.isResetArmed();
+            int border = armed ? 0xFFFF3333 : this.isHoveredOrFocused() ? 0xFFFF8C00 : 0xFF555555;
+            int symbolColor = armed ? 0xFFFF5555 : 0xFFDDDDDD;
+
+            int x = this.getX();
+            int y = this.getY();
+            gfx.fill(x, y, x + this.width, y + this.height, 0xFF1A1A1A);
+            drawBorder(gfx, x, y, this.width, this.height, border);
+
+            int symbolW = PhoraMerchantScreen.this.font.width(RESET_SYMBOL);
+            gfx.drawString(PhoraMerchantScreen.this.font, RESET_SYMBOL,
+                    x + (this.width - symbolW) / 2 + 1, y + 2, symbolColor, false);
+        }
     }
 
     @OnlyIn(Dist.CLIENT)
