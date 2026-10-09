@@ -29,7 +29,7 @@ public class ModItems {
 
     @SubscribeEvent
     public static void addCreative(BuildCreativeModeTabContentsEvent event) {
-        if (event.getTabKey() == Aldeanoforaflut.EXAMPLE_TAB.getKey()) {
+        if (event.getTabKey() == Aldeanoforaflut.PHORA_TAB.getKey()) {
             event.accept(DILITIO);
             event.accept(PHORA_TABLET);
         }
