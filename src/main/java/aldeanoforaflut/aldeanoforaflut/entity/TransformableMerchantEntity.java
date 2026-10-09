@@ -4,6 +4,7 @@ import aldeanoforaflut.aldeanoforaflut.Aldeanoforaflut;
 import aldeanoforaflut.aldeanoforaflut.TransformableMerchantBlock;
 import aldeanoforaflut.aldeanoforaflut.network.ModMessages;
 import aldeanoforaflut.aldeanoforaflut.network.PhoraTradeInfoPacket;
+import aldeanoforaflut.aldeanoforaflut.sound.ModSounds;
 import aldeanoforaflut.aldeanoforaflut.trade.DilitioTrades;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -14,7 +15,7 @@ import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -165,9 +166,13 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
         if (!this.level().isClientSide) {
             if (getEntityState() == 1) {
                 turnOnTicks++;
+                if (turnOnTicks == 1) {
+                    this.playSound(ModSounds.PHORA_POWER_ON.get(), 1.0f, 1.0f);
+                }
                 if (turnOnTicks >= 40) {
                     setEntityState(2);
                     this.setNoAi(false);
+                    this.playSound(ModSounds.PHORA_BOOT_READY.get(), 1.0f, 1.0f);
                 }
             } else if (getEntityState() == 2) {
                 // Barra pasiva: incrementar cada tick (1% cada ~3 horas = 216000 ticks)
@@ -206,8 +211,45 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
             this.spawnAtLocation(new ItemStack(Aldeanoforaflut.MERCHANT_BLOCK_ITEM.get()));
         }
 
-        this.playSound(SoundEvents.BEACON_DEACTIVATE, 1.0f, 1.0f);
+        this.playSound(ModSounds.PHORA_POWER_OFF.get(), 1.0f, 1.0f);
         this.discard();
+    }
+
+    // --- SONIDOS: computadora de ciencia ficción en lugar de la voz del aldeano ---
+    @Override
+    protected SoundEvent getAmbientSound() {
+        if (!isActive()) return null;
+        return this.isTrading() ? ModSounds.PHORA_PROCESSING.get() : ModSounds.PHORA_AMBIENT.get();
+    }
+
+    @Override
+    public int getAmbientSoundInterval() {
+        return 240;
+    }
+
+    @Override
+    protected SoundEvent getHurtSound(DamageSource source) {
+        return null; // Es invulnerable: no hay quejido
+    }
+
+    @Override
+    protected SoundEvent getDeathSound() {
+        return ModSounds.PHORA_POWER_OFF.get();
+    }
+
+    @Override
+    protected SoundEvent getTradeUpdatedSound(boolean hasResult) {
+        return hasResult ? ModSounds.PHORA_ACCEPT.get() : ModSounds.PHORA_DENY.get();
+    }
+
+    @Override
+    public SoundEvent getNotifyTradeSound() {
+        return ModSounds.PHORA_TRADE.get();
+    }
+
+    @Override
+    public float getVoicePitch() {
+        return 1.0f; // Sin la variación aleatoria de la voz de aldeano
     }
 
     @Override
