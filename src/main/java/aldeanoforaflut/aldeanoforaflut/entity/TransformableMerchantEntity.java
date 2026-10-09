@@ -46,9 +46,15 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
 
     // 1 = Turning On (animacion de encendido)
     // 2 = Active Villager (camina y tradea)
+    // 3 = Turning Off (animacion de apagado, luego vuelve a ser bloque)
     private static final EntityDataAccessor<Integer> STATE = SynchedEntityData.defineId(TransformableMerchantEntity.class, EntityDataSerializers.INT);
 
+    private static final int TURN_OFF_DURATION = 32;
+    private static final int TRADE_SOUND_COOLDOWN = 3;
+
     private int turnOnTicks = 0;
+    private int turnOffTicks = 0;
+    private int lastTradeSoundTick = -TRADE_SOUND_COOLDOWN;
 
     // Niveles de XP estilo aldeano vanilla
     private int phoraLevel = 1;
@@ -177,8 +183,17 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
             } else if (getEntityState() == 2) {
                 // Barra pasiva: incrementar cada tick (1% cada ~3 horas = 216000 ticks)
                 this.passiveTicks++;
+            } else if (getEntityState() == 3) {
+                turnOffTicks++;
+                if (turnOffTicks >= TURN_OFF_DURATION) {
+                    finishTurnOff();
+                }
             }
         }
+    }
+
+    public boolean isTurningOff() {
+        return getEntityState() == 3;
     }
 
     // --- INMORTAL: solo se quita reiniciándolo (vuelve a ser bloque) ---
@@ -189,12 +204,13 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
     }
 
     /**
-     * Apaga el Phora: cierra el comercio, lo vuelve a colocar como bloque en su posición
-     * (o lo suelta como ítem si el lugar está ocupado) y elimina la entidad.
+     * Apaga el Phora: cierra el comercio y reproduce la animación de apagado.
+     * Al terminar se vuelve a colocar como bloque en su posición (o se suelta como ítem
+     * si el lugar está ocupado) y se elimina la entidad.
      * Al encenderlo de nuevo se crea una entidad nueva con tradeos distintos.
      */
     public void resetToBlock() {
-        if (this.level().isClientSide || this.isRemoved()) return;
+        if (this.level().isClientSide || this.isRemoved() || isTurningOff()) return;
 
         Player trader = this.getTradingPlayer();
         if (trader != null) {
@@ -202,6 +218,15 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
             this.setTradingPlayer(null);
         }
 
+        this.getNavigation().stop();
+        this.setDeltaMovement(0, this.getDeltaMovement().y, 0);
+        this.setNoAi(true);
+        this.turnOffTicks = 0;
+        setEntityState(3);
+        this.playSound(ModSounds.PHORA_POWER_OFF.get(), 1.0f, 1.0f);
+    }
+
+    private void finishTurnOff() {
         BlockPos pos = this.blockPosition();
         BlockState blockState = Aldeanoforaflut.MERCHANT_BLOCK.get().defaultBlockState()
                 .setValue(TransformableMerchantBlock.FACING, Direction.fromYRot(this.getYRot()));
@@ -211,7 +236,6 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
             this.spawnAtLocation(new ItemStack(Aldeanoforaflut.MERCHANT_BLOCK_ITEM.get()));
         }
 
-        this.playSound(ModSounds.PHORA_POWER_OFF.get(), 1.0f, 1.0f);
         this.discard();
     }
 
@@ -348,6 +372,11 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
     @Override
     public void notifyTrade(MerchantOffer offer) {
         super.notifyTrade(offer); // Esto internamente llama a rewardTradeXp
+        // Shift-click hace varios tradeos en el mismo tick: un solo sonido para no saturar
+        if (this.tickCount - this.lastTradeSoundTick >= TRADE_SOUND_COOLDOWN) {
+            this.lastTradeSoundTick = this.tickCount;
+            this.playSound(ModSounds.PHORA_TRADE.get(), 0.9f, 0.95f + this.random.nextFloat() * 0.1f);
+        }
     }
 
     @Override
@@ -471,6 +500,9 @@ public class TransformableMerchantEntity extends WanderingTrader implements GeoE
 
         if (entityState == 1) {
             state.getController().setAnimation(RawAnimation.begin().thenPlay("animation.phora.turn_on"));
+            return PlayState.CONTINUE;
+        } else if (entityState == 3) {
+            state.getController().setAnimation(RawAnimation.begin().thenPlayAndHold("animation.phora.turn_off"));
             return PlayState.CONTINUE;
         } else {
             // Estado 2: Activo
